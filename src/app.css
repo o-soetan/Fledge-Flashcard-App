@@ -1,0 +1,13 @@
+:root {
+  --midnight-blue: #0A1220;
+  --dark-navy: #1A2332;
+  --vibrant-teal: #00D4AA;
+  --text-primary: #FFFFFF;
+  --text-muted: #8C9BAB;
+}
+
+body {
+  background-color: var(--midnight-blue);
+  color: var(--text-primary);
+  font-family: sans-serif;
+}

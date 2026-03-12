@@ -1,4 +1,7 @@
+
 <script>
+  export const ssr = false;
+  export const prerender = false;
   import "../app.css";
   import { writable } from 'svelte/store';
   import Dashboard from '$lib/components/Dashboard.svelte';
@@ -17,7 +20,9 @@
   function handleNavigate(screen, params = {}) {
     navigationParams.set(params);
     currentScreen.set(screen);
-    window.scrollTo(0,  0);
+    if (browser) {
+      window.scrollTo(0, 0);
+    }
   }
 </script>
 

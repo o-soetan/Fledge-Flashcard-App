@@ -4,9 +4,10 @@
   import ImportManager from './Import.svelte';
   import ExportManager from './Export.svelte';
   let { onNavigate } = $props();
-  
+  /** @type {any[]} */
   // --- Data State ---
   let allCards = $state([]);
+  /** @type {any[]} */
   let usedTags = $state([]);
   let usedDecks = $state([]);
   

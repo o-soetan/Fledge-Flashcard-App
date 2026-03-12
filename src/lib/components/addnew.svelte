@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { db } from '$lib/db';
+  import { db } from '$lib/db.js';
   import AudioRecorder from './AudioRecorder.svelte'; 
   export let onNavigate;
 

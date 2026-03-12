@@ -1,5 +1,5 @@
 <script>
-  import { db } from '$lib/db';
+  import { db } from '$lib/db.js';
   export let allCards;
   export let onCancel;
 

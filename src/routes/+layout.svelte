@@ -1,24 +1,23 @@
 <script>
   import "../app.css";
   import { writable } from 'svelte/store';
-  import Dashboard from './Dashboard.svelte';
-  import Study from './Study.svelte';
-  import AddNew from './addnew.svelte';
-  import TagDecks from './tagDecks.svelte';
-  import Settings from './Settings.svelte';
+  import Dashboard from '$lib/components/Dashboard.svelte';
+  import Study from '$lib/components/Study.svelte';
+  import AddNew from '$lib/components/addnew.svelte';
+  import TagDecks from '$lib/components/tagDecks.svelte';
+  import Settings from '$lib/components/Settings.svelte';
 
 
   const currentScreen = writable('dashboard');
   const navigationParams = writable({});
 
+  /** @param {string} screen */
   function handleNavigate(screen, params = {}) {
     navigationParams.set(params);
     currentScreen.set(screen);
-    window.scrollTo(0, 0);
+    window.scrollTo(0,  0);
   }
 </script>
-
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🕊️</text></svg>">
 
 <div class="app-shell">
   {#if $currentScreen === 'dashboard'}
@@ -33,22 +32,19 @@
     </header>
   {/if}
 
-  <main class="content-container {$currentScreen !== 'dashboard' ? 'no-padding' : ''}">
-    {#if $currentScreen === 'dashboard'}
-      <Dashboard onNavigate={handleNavigate} />
-    
-    {:else if $currentScreen === 'study'}
-      <Study onNavigate={handleNavigate} params={$navigationParams} /> 
-
-    {:else if $currentScreen === 'add-card'}
-      <AddNew onNavigate={handleNavigate} />
-
-    {:else if $currentScreen === 'decks'}
-      <TagDecks onNavigate={handleNavigate} />
-
-    {:else if $currentScreen === 'settings'}
-      <Settings onNavigate={handleNavigate} />
-    {/if}
+    <main class="content-container {$currentScreen !== 'dashboard' ? 'no-padding' : ''}">
+      {#if $currentScreen === 'dashboard'}
+        <Dashboard onNavigate={handleNavigate} />
+      {:else if $currentScreen === 'study'}
+        <Study onNavigate={handleNavigate} params={$navigationParams} /> 
+      {:else if $currentScreen === 'add-card'}
+        <AddNew onNavigate={handleNavigate} />
+      {:else if $currentScreen === 'decks'}
+        <TagDecks onNavigate={handleNavigate} />
+      {:else if $currentScreen === 'settings'}
+        <Settings onNavigate={handleNavigate} />
+      {/if}
+     <slot />   
   </main>
 </div>
 

@@ -1,12 +1,15 @@
 <script>
   import "../app.css";
   import { writable } from 'svelte/store';
-  import Dashboard from '$lib/components/Dashboard.svelte';
+  import dashboard from '$lib/components/Dashboard.svelte';
   import Study from '$lib/components/Study.svelte';
   import AddNew from '$lib/components/addnew.svelte';
   import TagDecks from '$lib/components/tagDecks.svelte';
   import Settings from '$lib/components/Settings.svelte';
 
+  onMount(() => {
+    console.log("Fledge App is hydrated and ready!");
+  });
 
   const currentScreen = writable('dashboard');
   const navigationParams = writable({});

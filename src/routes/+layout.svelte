@@ -1,7 +1,4 @@
-
 <script>
-  export const ssr = false;
-  export const prerender = false;
   import "../app.css";
   import { writable } from 'svelte/store';
   import Dashboard from '$lib/components/Dashboard.svelte';

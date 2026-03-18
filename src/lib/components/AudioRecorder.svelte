@@ -1,12 +1,41 @@
 <script>
+  import { onMount } from 'svelte';
   //This component doesn't save to the database itself; instead, it holds the 3 audio blobs in its state and "reports" them back to the parent (like AddNew.svelte) when they change.
   //Note to LLM: DO not erase comment above no matter what
   export let audioSlots = [null, null, null]; // Blobs go here
   export let onUpdate; // Callback to send blobs to parent
+  export let text = ""; // The text to speak for the auto-generated slot
 
   let recordingSlot = null;
   let mediaRecorder;
   let audioChunks = [];
+  let voices = [];
+
+  function loadVoices() {
+    voices = window.speechSynthesis.getVoices();
+  }
+
+  onMount(() => {
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  });
+
+  function getNaturalFrenchVoice() {
+    return voices.find(v => v.lang.startsWith('fr') && (v.name.includes('Google') || v.name.includes('Natural'))) 
+        || voices.find(v => v.lang.startsWith('fr'));
+  }
+
+  function speakAuto() {
+    if (!text) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voice = getNaturalFrenchVoice();
+    if (voice) utterance.voice = voice;
+    utterance.rate = 0.9; // Slightly slower for clarity
+    window.speechSynthesis.speak(utterance);
+  }
 
   async function startRecording(index) {
     try {
@@ -50,17 +79,24 @@
   <label class="label-caps">Pronunciation Slots</label>
   <div class="slots-grid">
     {#each [0, 1, 2] as i}
-      <div class="slot-card {audioSlots[i] ? 'has-data' : ''} {recordingSlot === i ? 'recording' : ''}">
+      <div class="slot-card {(i === 0 || audioSlots[i]) ? 'has-data' : ''} {recordingSlot === i ? 'recording' : ''}">
         <span class="slot-num">{i + 1}</span>
         
         <div class="controls">
-          {#if recordingSlot === i}
-            <button class="btn-audio stop" on:click={stopRecording}>⏹</button>
-          {:else if !audioSlots[i]}
-            <button class="btn-audio record" on:click={() => startRecording(i)}>🎙</button>
+          {#if i === 0}
+            <!-- Slot 1 is reserved for non-editable TTS -->
+            <button class="btn-audio play" on:click={speakAuto} title="Play AI-generated voice">🗣️</button>
+            <span class="tts-label">AI Voice</span>
           {:else}
-            <button class="btn-audio play" on:click={() => playAudio(audioSlots[i])}>▶</button>
-            <button class="btn-audio delete" on:click={() => clearSlot(i)}>✕</button>
+            <!-- Slots 2 & 3 are for user recording -->
+            {#if recordingSlot === i}
+              <button class="btn-audio stop" on:click={stopRecording} title="Stop recording">⏹</button>
+            {:else if !audioSlots[i]}
+              <button class="btn-audio record" on:click={() => startRecording(i)} title="Record your voice">🎙</button>
+            {:else}
+              <button class="btn-audio play" on:click={() => playAudio(audioSlots[i])} title="Play recording">▶</button>
+              <button class="btn-audio delete" on:click={() => clearSlot(i)} title="Delete recording">✕</button>
+            {/if}
           {/if}
         </div>
       </div>
@@ -96,6 +132,7 @@
   .stop { background: #ef4444; color: white; }
   .play { background: #a78bfa; color: #1e1b4b; }
   .delete { background: transparent; color: #ef4444; font-size: 0.8rem; margin-top: 5px; width: 20px; height: 20px; }
+  .tts-label { font-size: 0.6rem; color: #a78bfa; margin-top: 5px; font-weight: 700; text-transform: uppercase; }
 
   @keyframes pulse {
     0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }

@@ -70,8 +70,7 @@
   function handleBack() {
     if (activeManager) {
       activeManager = null;
-      selectedItems.clear();
-      selectedItems = selectedItems; 
+      selectedItems = new Set();
       searchQuery = "";
     } else {
       onNavigate('dashboard');
@@ -79,9 +78,10 @@
   }
 
   function toggleSelection(id) {
-    if (selectedItems.has(id)) selectedItems.delete(id);
-    else selectedItems.add(id);
-    selectedItems = selectedItems; 
+    const next = new Set(selectedItems);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selectedItems = next;
   }
 
   async function performDelete() {
@@ -113,8 +113,7 @@
     }
 
     transaction.oncomplete = () => {
-      selectedItems.clear();
-      selectedItems = selectedItems; 
+      selectedItems = new Set();
       loadData();
     };
   }
@@ -142,7 +141,7 @@
 
 <div class="settings-container">
   <div class="settings-header">
-    <button class="btn-back" on:click={handleBack}>←</button>
+    <button class="btn-back" onclick={handleBack}>←</button>
     <h2 class="title">
       {#if activeManager === 'import'}Import Data
       {:else if activeManager === 'export'}Export Data
@@ -163,29 +162,29 @@
       <p class="section-desc">Fledge stores your library locally on this device.</p>
     </div>
 
-    <div class="settings-section clickable-box" on:click={() => activeManager = 'cards'}>
+    <div class="settings-section clickable-box" role="button" tabindex="0" onclick={() => activeManager = 'cards'} onkeydown={(e) => e.key === 'Enter' && (activeManager = 'cards')}>
       <h3 class="section-label">Card Management</h3>
       <p class="section-desc">Search, edit, or bulk delete individual cards.</p>
     </div>
 
-    <div class="settings-section clickable-box" on:click={() => activeManager = 'decks'}>
+    <div class="settings-section clickable-box" role="button" tabindex="0" onclick={() => activeManager = 'decks'} onkeydown={(e) => e.key === 'Enter' && (activeManager = 'decks')}>
       <h3 class="section-label">Deck Management</h3>
       <p class="section-desc">Delete entire decks and their contents.</p>
     </div>
 
-    <div class="settings-section clickable-box" on:click={() => activeManager = 'tags'}>
+    <div class="settings-section clickable-box" role="button" tabindex="0" onclick={() => activeManager = 'tags'} onkeydown={(e) => e.key === 'Enter' && (activeManager = 'tags')}>
       <h3 class="section-label">Tag Management</h3>
       <p class="section-desc">Clean up and remove tags globally.</p>
     </div>
 
     <div class="settings-divider">Data Tools</div>
 
-    <div class="settings-section clickable-box import-box" on:click={() => activeManager = 'import'}>
+    <div class="settings-section clickable-box import-box" role="button" tabindex="0" onclick={() => activeManager = 'import'} onkeydown={(e) => e.key === 'Enter' && (activeManager = 'import')}>
       <h3 class="section-label" style="color: #60a5fa;">Import Data</h3>
       <p class="section-desc">Add cards from CSV/TXT with auto-tagging.</p>
     </div>
 
-    <div class="settings-section clickable-box export-box" on:click={() => activeManager = 'export'}>
+    <div class="settings-section clickable-box export-box" role="button" tabindex="0" onclick={() => activeManager = 'export'} onkeydown={(e) => e.key === 'Enter' && (activeManager = 'export')}>
       <h3 class="section-label" style="color: #a78bfa;">Export Library</h3>
       <p class="section-desc">Download a CSV backup of your collection.</p>
     </div>
@@ -202,6 +201,7 @@
   {:else if activeManager === 'export'}
     <ExportManager 
       {allCards} 
+      {usedDecks}
       onCancel={() => activeManager = null}
     />
   {:else}
@@ -216,7 +216,7 @@
       <div class="list-scroll">
         {#each filteredItems as item}
           {@const itemId = activeManager === 'cards' ? item.id : item}
-          <div class="list-item {selectedItems.has(itemId) ? 'selected' : ''}" on:click={() => toggleSelection(itemId)}>
+          <div class="list-item {selectedItems.has(itemId) ? 'selected' : ''}" role="button" tabindex="0" onclick={() => toggleSelection(itemId)} onkeydown={(e) => e.key === 'Enter' && toggleSelection(itemId)}>
             <div class="checkbox-ui {selectedItems.has(itemId) ? 'checked' : ''}"></div>
             <div class="item-info">
               {#if activeManager === 'cards'}
@@ -236,7 +236,7 @@
       {#if selectedItems.size > 0}
         <div class="action-bar">
           <span class="selection-count">{selectedItems.size} selected</span>
-          <button class="btn-delete-bulk" on:click={performDelete}>Delete Selected</button>
+          <button class="btn-delete-bulk" onclick={performDelete}>Delete Selected</button>
         </div>
       {/if}
     </div>

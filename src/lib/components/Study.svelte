@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { db } from '$lib/db';
   export let onNavigate;
   export let params = {};
@@ -17,6 +17,7 @@
   let mediaRecorder;
   let audioChunks = [];
   let currentPlayingAudio = null; 
+  let isSynthesizing = false;
 
   // Settings & Edit Modal State
   let showSettings = false;
@@ -38,6 +39,35 @@
 
   $: isLongWord = (word) => word && word.length > 10;
   
+  // --- TTS LOGIC ---
+  let voices = [];
+  function loadVoices() {
+    voices = window.speechSynthesis.getVoices();
+  }
+
+  function getNaturalFrenchVoice() {
+    return voices.find(v => v.lang.startsWith('fr') && (v.name.includes('Google') || v.name.includes('Natural'))) 
+        || voices.find(v => v.lang.startsWith('fr'));
+  }
+
+  function speakAuto(text) {
+    if (!text) return;
+
+    if (isSynthesizing) {
+      window.speechSynthesis.cancel();
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voice = getNaturalFrenchVoice();
+    if (voice) utterance.voice = voice;
+    utterance.rate = 0.9;
+    utterance.onstart = () => isSynthesizing = true;
+    utterance.onend = () => isSynthesizing = false;
+    utterance.onerror = () => isSynthesizing = false;
+    window.speechSynthesis.speak(utterance);
+  }
+
   // --- AUDIO LOGIC ---
   function toggleAudio(blob) {
     if (!blob) return;
@@ -46,6 +76,7 @@
     if (currentPlayingAudio) {
       currentPlayingAudio.pause();
       currentPlayingAudio.currentTime = 0; 
+      currentPlayingAudio.onended = null;
       currentPlayingAudio = null;
       return;
     }
@@ -58,6 +89,7 @@
     
     audio.onended = () => {
       URL.revokeObjectURL(url);
+      audio.onended = null;
       currentPlayingAudio = null;
     };
   }
@@ -181,8 +213,31 @@
     };
   }
 
+  function handleKeydown(event) {
+    // Do not interfere if the edit modal is open and the user is typing
+    if (showSettings) return;
+
+    if (event.key === 'ArrowLeft') {
+      prevCard();
+    } else if (event.key === 'ArrowRight') {
+      nextCard();
+    } else if (event.key === ' ') {
+      event.preventDefault(); // Prevents the page from scrolling down
+      showFront = !showFront;
+    }
+  }
+
   onMount(async () => {
     await loadCards();
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    window.addEventListener('keydown', handleKeydown);
+  });
+
+  onDestroy(() => {
+    // Clean up the event listener when the component is destroyed to prevent memory leaks
+    window.removeEventListener('keydown', handleKeydown);
   });
 
   function nextCard() {
@@ -242,13 +297,17 @@
             </h2>
           </div>
         {:else}
+          {@const canPlay = activeAudioIndex === 0 || (cards[currentIndex].audio && cards[currentIndex].audio[activeAudioIndex])}
           <div class="top-right-audio">
-            {#if cards[currentIndex].audio && cards[currentIndex].audio[activeAudioIndex]}
+            {#if canPlay}
               <button 
-                class="btn-audio-play-blended {currentPlayingAudio ? 'is-playing' : ''}" 
-                on:click|stopPropagation={() => toggleAudio(cards[currentIndex].audio[activeAudioIndex])}
+                class="btn-audio-play-blended {(currentPlayingAudio || isSynthesizing) ? 'is-playing' : ''}" 
+                on:click|stopPropagation={() => {
+                  if (activeAudioIndex === 0) speakAuto(cards[currentIndex].french);
+                  else toggleAudio(cards[currentIndex].audio[activeAudioIndex]);
+                }}
               >
-                {currentPlayingAudio ? '⏹' : '🔊'}
+                {currentPlayingAudio || isSynthesizing ? '⏹' : '🔊'}
               </button>
             {/if}
           </div>
@@ -312,8 +371,12 @@
             <div class="audio-management-list">
               {#each [0, 1, 2] as i}
                 <div class="audio-row {activeAudioIndex === i ? 'is-active-slot' : ''}">
-                  <button class="slot-select-indicator" on:click={() => activeAudioIndex = i}>
-                    {activeAudioIndex === i ? '⭐' : 'Slot ' + (i + 1)}
+                  <button class="slot-select-indicator" on:click={() => activeAudioIndex = i} title={i === 0 ? 'Use AI Voice' : 'Use Recording ' + (i + 1)}>
+                    {#if i === 0}
+                      {activeAudioIndex === i ? '⭐' : 'AI Voice'}
+                    {:else}
+                      {activeAudioIndex === i ? '⭐' : 'Slot ' + (i + 1)}
+                    {/if}
                   </button>
                   <div class="audio-actions">
                     {#if recordingSlot === i}
@@ -410,7 +473,7 @@
   .audio-row { display: flex; align-items: center; justify-content: space-between; padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
   .audio-row:last-child { border-bottom: none; }
   .audio-row.is-active-slot { background: rgba(45, 212, 191, 0.05); border-radius: 8px; }
-  .slot-select-indicator { background: none; border: none; color: #8C9BAB; font-size: 0.75rem; font-weight: bold; cursor: pointer; text-align: left; width: 60px; }
+  .slot-select-indicator { background: none; border: none; color: #8C9BAB; font-size: 0.75rem; font-weight: bold; cursor: pointer; text-align: left; width: 70px; }
   .audio-actions { display: flex; gap: 8px; }
   .action-btn { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
   .rec-start { background: #334155; color: white; }

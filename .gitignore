@@ -46,3 +46,6 @@ build/
 *.sln
 *.sw?
 
+#Encryption file
+crypto.js
++server.js

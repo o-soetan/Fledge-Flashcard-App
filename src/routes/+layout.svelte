@@ -1,5 +1,6 @@
 <script>
   import "../app.css";
+  import { browser } from '$app/environment';
   import { writable } from 'svelte/store';
   import Dashboard from '$lib/components/Dashboard.svelte';
   import Study from '$lib/components/Study.svelte';

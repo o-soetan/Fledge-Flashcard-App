@@ -202,6 +202,7 @@
     <AudioRecorder 
       audioSlots={cardAudio} 
       onUpdate={(updated) => cardAudio = updated} 
+      text={french}
     />
 
     <div class="input-group">

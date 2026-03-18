@@ -47,5 +47,3 @@ build/
 *.sw?
 
 #Encryption file
-crypto.js
-+server.js

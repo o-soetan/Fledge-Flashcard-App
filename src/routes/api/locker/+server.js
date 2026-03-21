@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { VITE_R2_ACCOUNT_ID, VITE_R2_ACCESS_KEY_ID, VITE_R2_SECRET_ACCESS_KEY, VITE_R2_BUCKET_NAME } from '$env/static/public';
+import { VITE_R2_ACCOUNT_ID, VITE_R2_ACCESS_KEY_ID, VITE_R2_SECRET_ACCESS_KEY, VITE_R2_BUCKET_NAME } from '$env/static/private';
 
 // Initialize the connection to Cloudflare R2
 const R2 = new S3Client({

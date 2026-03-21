@@ -13,7 +13,7 @@
   let exportFormat = $state('encrypted'); // 'encrypted', 'json', 'csv'
   let exportScope = $state('all');        // 'all', 'decks'
   let selectedDecks = $state(new Set());
-  let canvasRef;
+let canvasRef = $state();
 
   function toggleDeckSelection(deck) {
     const next = new Set(selectedDecks);

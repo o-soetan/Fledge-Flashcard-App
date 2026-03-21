@@ -7,7 +7,7 @@ const R2 = new S3Client({
     region: 'auto',
     endpoint: `https://${VITE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
     credentials: {
-        accessKeyId: VITE_R2_ACCESS__KEY_ID,
+        accessKeyId: VITE_R2_ACCESS_KEY_ID,
         secretAccessKey: VITE_R2_SECRET_ACCESS_KEY,
     },
 });

@@ -2,9 +2,10 @@
   import { onMount } from 'svelte';
   import { db } from '$lib/db';
 
-  export let onNavigate;
-  let searchTerm = "";
-  let deckStats = []; 
+  let { onNavigate } = $props();
+  let searchTerm = $state("");
+  let deckStats = $state([]); 
+  let allCards = $state([]);
 
   async function loadExistingDecks() {
     const database = await db.init();
@@ -13,10 +14,10 @@
     const request = store.getAll();
     
     request.onsuccess = () => {
-      const cards = request.result;
+      allCards = request.result;
       
       // Calculate real counts for each deck
-      const counts = cards.reduce((acc, card) => {
+      const counts = allCards.reduce((acc, card) => {
         const deckName = card.deck || 'General';
         acc[deckName] = (acc[deckName] || 0) + 1;
         return acc;
@@ -31,9 +32,26 @@
 
   onMount(loadExistingDecks);
 
-  $: filteredDecks = deckStats.filter(deck => 
-    deck.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Advanced search logic: Finds decks by name OR by content inside them
+  let filteredDecks = $derived.by(() => {
+    if (!searchTerm.trim()) return deckStats;
+
+    // Create a regex for "whole word" matching to isolate articles
+    // This ensures 'un' doesn't match 'lundi'
+    const boundaryRegex = new RegExp(`\\b${searchTerm.trim()}\\b`, 'i');
+
+    // Find which decks contain cards that match the search
+    const decksWithMatchingCards = new Set(
+      allCards
+        .filter(c => boundaryRegex.test(c.french) || boundaryRegex.test(c.english))
+        .map(c => c.deck || 'General')
+    );
+
+    return deckStats.filter(deck => 
+      deck.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      decksWithMatchingCards.has(deck.name)
+    );
+  });
 </script>
 
 <div class="dashboard-wrapper">
@@ -53,13 +71,13 @@
       <h2 class="section-label">Decks</h2>
       <div class="scroll-container">
         {#each filteredDecks as deck}
-          <div class="deck-card" on:click={() => onNavigate('study', { deck: deck.name })}>
+          <button class="deck-card" onclick={() => onNavigate('study', { deck: deck.name })}>
             <div class="deck-info">
               <span class="deck-name">{deck.name}</span>
               <span class="deck-count">{deck.count} {deck.count === 1 ? 'Card' : 'Cards'}</span>
             </div>
             <span class="arrow">→</span>
-          </div>
+          </button>
         {:else}
           <p class="empty-msg">No decks found matching "{searchTerm}"</p>
         {/each}
@@ -68,22 +86,22 @@
   </main>
 
   <footer class="bottom-nav">
-    <button class="nav-item active" on:click={() => onNavigate('dashboard')}>
+    <button class="nav-item active" onclick={() => onNavigate('dashboard')}>
       <span class="icon">🏠</span>
       <span class="label">Home</span>
     </button>
     
-    <button class="nav-item" on:click={() => onNavigate('add-card')}>
+    <button class="nav-item" onclick={() => onNavigate('add-card')}>
       <span class="icon">➕</span>
       <span class="label">Add New</span>
     </button>
     
-    <button class="nav-item" on:click={() => onNavigate('decks')}>
+    <button class="nav-item" onclick={() => onNavigate('decks')}>
       <span class="icon">🗂️</span>
       <span class="label">Tag Decks</span>
     </button>
     
-    <button class="nav-item" on:click={() => onNavigate('settings')}>
+    <button class="nav-item" onclick={() => onNavigate('settings')}>
       <span class="icon">⚙️</span>
       <span class="label">Settings</span>
     </button>
@@ -151,6 +169,10 @@
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    color: inherit;
   }
 
   .deck-name { display: block; font-weight: 600; font-size: 1.1rem; }

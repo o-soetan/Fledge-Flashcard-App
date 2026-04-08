@@ -4,17 +4,20 @@
   import ImportManager from './Import.svelte';
   import ExportManager from './Export.svelte';
   let { onNavigate } = $props();
-  /** @type {any[]} */
+
   // --- Data State ---
   let allCards = $state([]);
-  /** @type {any[]} */
   let usedTags = $state([]);
   let usedDecks = $state([]);
   
   // --- UI State ---
   let activeManager = $state(null); 
   let selectedItems = $state(new Set());
-  let searchQuery = $state(""); // Fixed: Added $state for binding
+  let searchQuery = $state(""); 
+
+  // --- Vault Status ---
+  let vaultStatus = $state('Locked');
+  let userHash = $state('');
 
   // --- Storage State ---
   let storageInfo = $state({ humanUsed: "0.00", percent: 0 });
@@ -50,6 +53,12 @@
 
   async function loadData() {
     await checkStorage();
+    const savedUser = localStorage.getItem('fledge_user_id');
+    if (savedUser) {
+      vaultStatus = 'Synced';
+      userHash = savedUser.substring(0, 8);
+    }
+
     const database = await db.init();
     const transaction = database.transaction(['customCards'], 'readonly');
     const store = transaction.objectStore('customCards');
@@ -60,7 +69,6 @@
       const tags = new Set(); 
       allCards.forEach(card => card.tags?.forEach(t => tags.add(t)));
       usedTags = Array.from(tags).sort();
-
       const decks = new Set();
       allCards.forEach(card => { if (card.deck) decks.add(card.deck); });
       usedDecks = Array.from(decks).sort();
@@ -87,7 +95,6 @@
   async function performDelete() {
     const items = Array.from(selectedItems);
     if (items.length === 0) return;
-    
     let confirmMsg = `Delete ${items.length} items?`;
     if (activeManager === 'decks') confirmMsg = `WARNING: This deletes decks and all cards inside. Continue?`;
     if (!confirm(confirmMsg)) return;
@@ -96,13 +103,9 @@
     const transaction = database.transaction(['customCards'], 'readwrite');
     const store = transaction.objectStore('customCards');
 
-    if (activeManager === 'cards') {
-      items.forEach(id => store.delete(id));
-    } 
+    if (activeManager === 'cards') { items.forEach(id => store.delete(id)); } 
     else if (activeManager === 'decks') {
-      allCards.forEach(card => {
-        if (items.includes(card.deck)) store.delete(card.id);
-      });
+      allCards.forEach(card => { if (items.includes(card.deck)) store.delete(card.id); });
     } 
     else if (activeManager === 'tags') {
       allCards.forEach(card => {
@@ -124,7 +127,6 @@
     loadData();
   }
 
-  // Derived logic for Svelte 5
   let filteredItems = $derived.by(() => {
     if (activeManager === 'cards') {
       return allCards.filter(c => 
@@ -179,6 +181,16 @@
 
     <div class="settings-divider">Data Tools</div>
 
+    <div role="button" tabindex="0" onclick={() => onNavigate('account')} onkeydown={(e) => e.key === 'Enter' && onNavigate('account')} class="settings-section clickable-box vault-box" style="border-color: rgba(129, 140, 248, 0.4); margin-top: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="section-label" style="color: #818cf8;">Cloud Vault & Sync</h3>
+        {#if vaultStatus === 'Synced'}
+          <span style="font-size: 0.6rem; color: #10b981; font-weight: 800; letter-spacing: 1px;">● SYNCED</span>
+        {/if}
+      </div>
+      <p class="section-desc">Access your library on other devices with E2EE backup.</p>
+    </div>
+
     <div class="settings-section clickable-box import-box" role="button" tabindex="0" onclick={() => activeManager = 'import'} onkeydown={(e) => e.key === 'Enter' && (activeManager = 'import')}>
       <h3 class="section-label" style="color: #60a5fa;">Import Data</h3>
       <p class="section-desc">Add cards from CSV/TXT with auto-tagging.</p>
@@ -190,20 +202,9 @@
     </div>
 
   {:else if activeManager === 'import'}
-    <ImportManager 
-      {allCards} 
-      {usedDecks} 
-      {TAG_PRESETS} 
-      {getTagColor} 
-      onComplete={handleImportComplete} 
-      onCancel={() => activeManager = null}
-    />
+    <ImportManager {allCards} {usedDecks} {TAG_PRESETS} {getTagColor} onComplete={handleImportComplete} onCancel={() => activeManager = null} />
   {:else if activeManager === 'export'}
-    <ExportManager 
-      {allCards} 
-      {usedDecks}
-      onCancel={() => activeManager = null}
-    />
+    <ExportManager {allCards} {usedDecks} onCancel={() => activeManager = null} />
   {:else}
     <div class="manager-window">
       <div class="toolbar">
@@ -212,7 +213,6 @@
           <input type="text" class="search-bar" placeholder="Search..." bind:value={searchQuery} />
         </div>
       </div>
-
       <div class="list-scroll">
         {#each filteredItems as item}
           {@const itemId = activeManager === 'cards' ? item.id : item}
@@ -232,7 +232,6 @@
           </div>
         {/each}
       </div>
-
       {#if selectedItems.size > 0}
         <div class="action-bar">
           <span class="selection-count">{selectedItems.size} selected</span>
@@ -248,22 +247,14 @@
   .settings-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
   .btn-back { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #8C9BAB; padding: 8px 16px; border-radius: 12px; cursor: pointer; font-size: 1.2rem; }
   .title { margin: 0; font-size: 1.3rem; font-weight: 800; }
-
-  .storage-section {
-    padding: 18px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 16px;
-    margin-bottom: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-  }
+  .storage-section { padding: 18px; background: rgba(255, 255, 255, 0.03); border-radius: 16px; margin-bottom: 20px; border: 1px solid rgba(255, 255, 255, 0.05); }
   .storage-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .storage-label { font-size: 0.7rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
   .storage-stats { font-size: 0.75rem; color: #2dd4bf; font-weight: 700; }
   .progress-bg { width: 100%; height: 6px; background: #0f172a; border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
   .progress-fill { height: 100%; background: linear-gradient(90deg, #2dd4bf, #3AB4F2); border-radius: 10px; transition: width 0.5s ease-out; }
-
   .settings-section { background: #1e293b; border-radius: 16px; padding: 14px 18px; border: 1px solid rgba(255,255,255,0.08); margin-top: 10px; cursor: pointer; transition: all 0.2s; }
-  .clickable-box:hover { background: #26334a; transform: translateY(-2px); }
+  .clickable-box:hover { background: #26334a; transform: translateY(-2px); border-color: #2dd4bf; }
   .settings-divider { font-size: 0.65rem; font-weight: 800; color: #475569; text-transform: uppercase; margin: 25px 0 10px 5px; letter-spacing: 1px; }
   .import-box { border-color: rgba(96, 165, 250, 0.3); }
   .export-box { border-color: rgba(167, 139, 250, 0.3); }

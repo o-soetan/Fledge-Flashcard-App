@@ -1,18 +1,31 @@
 <script>
   import "../app.css";
   import { browser } from '$app/environment';
+  import { onMount } from 'svelte'; // Added onMount
   import { writable } from 'svelte/store';
   import Dashboard from '$lib/components/Dashboard.svelte';
   import Study from '$lib/components/Study.svelte';
   import AddNew from '$lib/components/addnew.svelte';
   import TagDecks from '$lib/components/tagDecks.svelte';
   import Settings from '$lib/components/Settings.svelte';
-
+  import Account from "$lib/components/Account.svelte";
+  
   console.log("Fledge App is hydrated and ready!");
-
 
   const currentScreen = writable('dashboard');
   const navigationParams = writable({});
+
+  // Vault State logic
+  let vaultStatus = 'Locked';
+  let userHash = '';
+
+  onMount(() => {
+    const savedUser = localStorage.getItem('fledge_user_id');
+    if (savedUser) {
+      vaultStatus = 'Synced';
+      userHash = savedUser.substring(0, 8);
+    }
+  });
 
   /** @param {string} screen */
   function handleNavigate(screen, params = {}) {
@@ -32,7 +45,14 @@
         <button class="title-link" on:click={() => handleNavigate('dashboard')}>
           <h1 class="app-title">Fledge</h1>
         </button>
-        <div class="spacer"></div>
+        
+        <button class="vault-mini-btn" on:click={() => handleNavigate('account')}>
+          <span class="v-icon-mini">{vaultStatus === 'Synced' ? '🔓' : '🔒'}</span>
+          <div class="v-text-mini">
+            <span class="v-title-mini">{vaultStatus === 'Synced' ? 'Synced' : 'Vault'}</span>
+            {#if userHash}<span class="v-id-mini">{userHash}</span>{/if}
+          </div>
+        </button>
       </div>
     </header>
   {/if}
@@ -48,8 +68,10 @@
         <TagDecks onNavigate={handleNavigate} />
       {:else if $currentScreen === 'settings'}
         <Settings onNavigate={handleNavigate} />
+      {:else if $currentScreen === 'account'}
+    <Account onNavigate={handleNavigate} />
       {/if}
-     <slot />   
+      <slot />   
   </main>
 </div>
 
@@ -102,30 +124,65 @@
 
   .spacer { width: 44px; }
 
+  /* Vault Button Styles */
+  .vault-mini-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    text-decoration: none;
+    transition: all 0.2s;
+    min-width: 44px;
+    cursor: pointer;
+  }
+
+  .vault-mini-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--vibrant-teal);
+  }
+
+  .v-icon-mini { font-size: 0.8rem; }
+  .v-text-mini { display: flex; flex-direction: column; line-height: 1; }
+  
+  .v-title-mini { 
+    font-size: 0.55rem; 
+    font-weight: 800; 
+    color: var(--vibrant-teal); 
+    text-transform: uppercase;
+  }
+
+  .v-id-mini {
+    font-size: 0.5rem;
+    font-family: ui-monospace, monospace;
+    color: #8C9BAB;
+    margin-top: 2px;
+  }
+
   /* BASE CENTERED COLUMN */
   main {
     flex: 1;
     padding: 20px;
-    max-width: 600px; /* Limits width on desktop */
-    margin: 0 auto;   /* Centers the column */
+    max-width: 600px; 
+    margin: 0 auto;   
     width: 100%;
     box-sizing: border-box;
     transition: max-width 0.3s ease;
   }
 
-  /* FOR SETTINGS/STUDY: Removes side padding but STAYS centered */
   .no-padding { 
-    padding: 10px 0; /* Minimal top/bottom padding, zero sides */
+    padding: 10px 0; 
   }
 
-  /* SMALL SCREEN ADJUSTMENTS */
   @media (max-width: 480px) {
     main {
-      padding: 15px 12px; /* Tighter padding for mobile */
+      padding: 15px 12px; 
     }
     
     .no-padding {
-      padding: 0; /* True edge-to-edge for mobile */
+      padding: 0; 
     }
 
     .app-title {
@@ -138,10 +195,9 @@
     }
   }
 
-  /* LARGE SCREEN ADJUSTMENT (Optional: makes it feel more like an app) */
   @media (min-width: 1024px) {
     main {
-      max-width: 550px; /* Slightly tighter column for better readability */
+      max-width: 550px; 
     }
   }
 </style>

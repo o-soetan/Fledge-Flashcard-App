@@ -16,6 +16,7 @@ Fledge/
 │   ├── lib/
 │   │   ├── components/
 │   │   │   ├── addnew.svelte
+│   │   │   ├── Account.svelte
 │   │   │   ├── AudioRecorder.svelte
 │   │   │   ├── Counter.svelte
 │   │   │   ├── Dashboard.svelte

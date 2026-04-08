@@ -1,19 +1,14 @@
 <script>
-  import { generatePassphrase, encryptData } from '$lib/crypto';
-  import QRCode from 'qrcode';
   
   // Props passed from Settings.svelte
   let { allCards, usedDecks = [], onCancel } = $props();
 
-  let generatedPassphrase = $state('');
-  let encryptedBlob = $state('');
   let isProcessing = $state(false);
-  let showQR = $state(false);
   
-  let exportFormat = $state('encrypted'); // 'encrypted', 'json', 'csv'
+  let exportFormat = $state('csv'); // 'json', 'csv'
   let exportScope = $state('all');        // 'all', 'decks'
   let selectedDecks = $state(new Set());
-let canvasRef = $state();
+  let canvasRef = $state();
 
   function toggleDeckSelection(deck) {
     const next = new Set(selectedDecks);
@@ -61,31 +56,7 @@ let canvasRef = $state();
       : allCards.filter(c => selectedDecks.has(c.deck));
 
     setTimeout(async () => {
-      if (exportFormat === 'encrypted') {
-        try {
-          generatedPassphrase = generatePassphrase(4);
-          const rawData = await encryptData(cardsToExport, generatedPassphrase);
-          
-          const res = await fetch('/api/locker', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ encryptedData: rawData })
-          });
-          
-          if (!res.ok) throw new Error('Upload failed');
-          
-          const { lockerId } = await res.json();
-          encryptedBlob = `${window.location.origin}/restore?id=${lockerId}&key=${generatedPassphrase}`;
-          
-          isProcessing = false;
-          if (!showQR) toggleQR();
-        } catch (e) {
-          console.error(e);
-          alert("Backup failed: " + e.message);
-          isProcessing = false;
-        }
-      } else {
-        try {
+      try {
           const timestamp = new Date().toISOString().slice(0,10);
           if (exportFormat === 'json') {
             const jsonStr = JSON.stringify(cardsToExport, null, 2);
@@ -95,11 +66,10 @@ let canvasRef = $state();
             downloadFile(csvStr, `fledge_export_${timestamp}.csv`, 'text/csv');
           }
           onCancel(); // Close window after download
-        } catch (e) {
-          console.error(e);
-          alert("Export failed.");
-          isProcessing = false;
-        }
+      } catch (e) {
+        console.error(e);
+        alert("Export failed.");
+        isProcessing = false;
       }
     }, 50);
   }
@@ -108,53 +78,34 @@ let canvasRef = $state();
     navigator.clipboard.writeText(text);
     alert('Copied!');
   }
-
-  async function toggleQR() {
-    showQR = !showQR;
-    if (showQR) {
-      // Wait for DOM update so canvasRef is available
-      setTimeout(async () => {
-        if (!canvasRef) return;
-        try {
-          // Render the QR code to the canvas element
-          await QRCode.toCanvas(canvasRef, encryptedBlob, { width: 220, margin: 2, color: { dark: '#ffffff', light: '#0f172a' } });
-        } catch (e) {
-          alert("Data is too large for a QR Code. Please use the text copy method instead.");
-          showQR = false;
-        }
-      }, 50);
-    }
-  }
 </script>
 
 <div class="manager-window">
   <div class="header">
     <h3 class="title">Export & Backup</h3>
-    <button class="btn-close" on:click={onCancel}>×</button>
+    <button class="btn-close" onclick={onCancel}>×</button>
   </div>
 
-  {#if !encryptedBlob}
     <div class="intro">
       <div class="config-section">
-        <label>Format</label>
+        <label for="format-select">Format</label>
         <div class="toggle-row">
-          <button class="toggle-btn {exportFormat === 'encrypted' ? 'active' : ''}" on:click={() => exportFormat = 'encrypted'}>Encrypted</button>
-          <button class="toggle-btn {exportFormat === 'csv' ? 'active' : ''}" on:click={() => exportFormat = 'csv'}>CSV</button>
-          <button class="toggle-btn {exportFormat === 'json' ? 'active' : ''}" on:click={() => exportFormat = 'json'}>JSON</button>
+          <button id="format-select" class="toggle-btn {exportFormat === 'csv' ? 'active' : ''}" onclick={() => exportFormat = 'csv'}>CSV</button>
+          <button class="toggle-btn {exportFormat === 'json' ? 'active' : ''}" onclick={() => exportFormat = 'json'}>JSON</button>
         </div>
 
-        <label>Scope</label>
+        <label for="scope-select">Scope</label>
         <div class="toggle-row">
-          <button class="toggle-btn {exportScope === 'all' ? 'active' : ''}" on:click={() => exportScope = 'all'}>All Cards</button>
-          <button class="toggle-btn {exportScope === 'decks' ? 'active' : ''}" on:click={() => exportScope = 'decks'}>Select Decks</button>
+          <button id="scope-select" class="toggle-btn {exportScope === 'all' ? 'active' : ''}" onclick={() => exportScope = 'all'}>All Cards</button>
+          <button class="toggle-btn {exportScope === 'decks' ? 'active' : ''}" onclick={() => exportScope = 'decks'}>Select Decks</button>
         </div>
 
         {#if exportScope === 'decks'}
-          <div class="deck-list custom-scrollbar">
+          <div id="deck-selection" class="deck-list custom-scrollbar">
             {#each usedDecks as deck}
               <button 
                 class="deck-option {selectedDecks.has(deck) ? 'selected' : ''}" 
-                on:click={() => toggleDeckSelection(deck)}
+                onclick={() => toggleDeckSelection(deck)}
               >
                 <span class="checkbox">{selectedDecks.has(deck) ? '✓' : ''}</span>
                 {deck}
@@ -168,42 +119,13 @@ let canvasRef = $state();
       </div>
 
       <p class="info-text">
-        {exportFormat === 'encrypted' ? 'Creates a secure code to restore on another Fledge device.' : 
-         exportFormat === 'csv' ? 'Creates a spreadsheet compatible with Excel/Google Sheets.' : 'Creates a raw data file for developers or backup.'}
+        {exportFormat === 'csv' ? 'Creates a spreadsheet compatible with Excel/Google Sheets.' : 'Creates a raw data file for developers or backup.'}
       </p>
 
-      <button class="btn-primary" disabled={isProcessing} on:click={performExport}>
-        {isProcessing ? 'Processing...' : (exportFormat === 'encrypted' ? 'Generate Backup' : 'Download File')}
+      <button class="btn-primary" disabled={isProcessing} onclick={performExport}>
+        {isProcessing ? 'Processing...' : 'Download File'}
       </button>
     </div>
-  {:else}
-    <div class="result-section">
-      <div class="step">
-        <label>1. Save this Passphrase</label>
-        <div class="code-box">
-          <code>{generatedPassphrase}</code>
-          <button class="btn-copy" on:click={() => copyToClipboard(generatedPassphrase)}>Copy</button>
-        </div>
-        <p class="warning">You cannot restore your data without this!</p>
-      </div>
-
-      <div class="step">
-        <label>2. Scan or Copy Recovery Link</label>
-        <textarea readonly value={encryptedBlob} rows="5"></textarea>
-        <div class="action-row">
-          <button class="btn-copy-lg" on:click={() => copyToClipboard(encryptedBlob)}>Copy Link</button>
-          <button class="btn-icon" on:click={toggleQR} title="Show QR Code">
-            {showQR ? 'Hide' : '📱 QR'}
-          </button>
-        </div>
-        {#if showQR}
-          <div class="qr-box">
-            <canvas bind:this={canvasRef}></canvas>
-          </div>
-        {/if}
-      </div>
-    </div>
-  {/if}
 </div>
 
 <style>

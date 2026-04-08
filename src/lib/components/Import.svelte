@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
   import { db } from '$lib/db';
-  import { decryptData } from '$lib/crypto';
+  import { encryptData } from '$lib/crypto';
 
   // --- PROPS ---
   let { 
@@ -15,22 +15,16 @@
   } = $props();
 
   // --- STATE ---
-  let importStep = $state('choice'); // 'choice', 'restore', 'upload', 'processing', 'refine'
+  let importStep = $state('upload'); // 'upload', 'processing', 'refine'
   
-  // Restore State
-  let importBlob = $state('');
-  let passphrase = $state('');
-  let restoreStatus = $state('');
-  let isRestoreError = $state(false);
-
   // New Import State
   let importPreview = $state([]);
   let ocrStatus = $state('');
   let parseMode = $state('words');
-  let swapColumns = $state(false);
   let globalTag = $state('');
   let selectedExistDeck = $state('');
   let importNewDeckName = $state('');
+  let isTranslating = $state(false);
   
   // Workers & Libs
   let createWorker;
@@ -41,95 +35,6 @@
   let Html5QrcodeScanner;
   let scanner;
   let showScanner = $state(false);
-
-  // --- 1. RESTORE (E2EE) LOGIC ---
-  async function handleRestoreBlob() {
-    if (!importBlob) {
-      restoreStatus = 'Please paste a link or scan a QR code.';
-      isRestoreError = true;
-      return;
-    }
-
-    let link = importBlob.trim();
-    let keyToUse = passphrase.trim();
-
-    try {
-      restoreStatus = 'Analyzing Link...';
-      isRestoreError = false;
-      
-      let id, key;
-      try {
-         const urlObj = new URL(link.startsWith('http') ? link : `https://${link}`);
-         id = urlObj.searchParams.get('id');
-         key = urlObj.searchParams.get('key');
-      } catch (e) {
-         throw new Error("Invalid Link format.");
-      }
-
-      if (!id) throw new Error("Link missing Locker ID.");
-
-      if (key && !keyToUse) {
-          keyToUse = key;
-          passphrase = key;
-      }
-
-      restoreStatus = 'Downloading backup...';
-      const res = await fetch(`/api/locker?id=${id}`);
-      if (!res.ok) throw new Error('Backup not found or expired (24h limit).');
-      const json = await res.json();
-      const dataToDecrypt = json.encryptedData;
-
-      if (!keyToUse) throw new Error('Passphrase required.');
-
-      restoreStatus = 'Decrypting...';
-
-      // 1. Decrypt
-      const cards = await decryptData(dataToDecrypt, keyToUse);
-      
-      // 2. Import to DB
-      restoreStatus = `Decryption successful! Importing ${cards.length} cards...`;
-      await db.importCards(cards);
-      
-      // 3. Notify parent
-      onComplete(cards.length);
-    } catch (e) {
-      console.error(e);
-      restoreStatus = 'Failed! Incorrect passphrase or corrupted data.';
-      isRestoreError = true;
-    }
-  }
-
-  function toggleScanner() {
-    if (!Html5QrcodeScanner) {
-      alert("Scanner library is still loading. Please try again in a moment.");
-      return;
-    }
-    
-    if (showScanner) {
-      if (scanner) {
-        scanner.clear().catch(console.error);
-        scanner = null;
-      }
-      showScanner = false;
-    } else {
-      showScanner = true;
-      // Use a timeout to ensure the #qr-reader div is in the DOM
-      setTimeout(() => {
-        const onScanSuccess = (decodedText, decodedResult) => {
-          importBlob = decodedText;
-          try {
-            const url = new URL(decodedText);
-            const key = url.searchParams.get('key');
-            if (key) passphrase = key;
-          } catch (e) { /* ignore */ }
-
-          toggleScanner(); // Stop scanning on success
-        };
-        scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: { width: 250, height: 250 } });
-        scanner.render(onScanSuccess, (errorMessage) => { /* ignore scan errors */ });
-      }, 100);
-    }
-  }
 
   // --- 2. NEW IMPORT / OCR LOGIC ---
   onMount(async () => {
@@ -202,6 +107,9 @@
   }
 
   async function translateAll() {
+    if (isTranslating) return;
+    isTranslating = true;
+    try {
     for (let i = 0; i < importPreview.length; i++) {
       if (importPreview[i].english === "Click 🌐 to translate" || importPreview[i].english === "[Edit Me]") {
         ocrStatus = `Auto-Translating ${i + 1}/${importPreview.length}...`;
@@ -210,7 +118,29 @@
         await new Promise(r => setTimeout(r, 300)); 
       }
     }
+    } finally {
+      isTranslating = false;
     ocrStatus = "";
+    }
+  }
+
+  // Cycles columns: French -> English -> Pronunciation -> French
+  function rotateColumns() {
+    importPreview = importPreview.map(card => ({
+      ...card,
+      french: card.english,
+      english: card.pronunciation || "",
+      pronunciation: card.french
+    }));
+  }
+
+  // Swaps English and Pronunciation while leaving French intact
+  function swapTranslatePronunciation() {
+    importPreview = importPreview.map(card => ({
+      ...card,
+      english: card.pronunciation || "",
+      pronunciation: card.english
+    }));
   }
 
   async function handleFileSelect(event) {
@@ -315,16 +245,17 @@
     if (isOCR) {
       const fullText = cleanLines.join(' ');
       if (parseMode === 'sentences') {
-        rawData = fullText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 5).map(f => ({ f, e: "Click 🌐 to translate" }));
+        rawData = fullText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 5).map(f => ({ f, e: "Click 🌐 to translate", p: null }));
       } else {
-        rawData = smartSplitFrench(fullText).map(f => ({ f, e: "Click 🌐 to translate" }));
+        rawData = smartSplitFrench(fullText).map(f => ({ f, e: "Click 🌐 to translate", p: null }));
       }
     } else {
       rawData = cleanLines.map(line => {
         const parts = line.split(/[,|\t;]/);
         return { 
-          f: swapColumns ? (parts[1]?.trim() || "") : parts[0].trim(), 
-          e: swapColumns ? parts[0].trim() : (parts[1]?.trim() || "[Edit Me]") 
+          f: parts[0]?.trim() || "", 
+          e: parts[1]?.trim() || "[Edit Me]",
+          p: parts.length > 2 ? (parts[2]?.trim() || "") : null
         };
       });
     }
@@ -334,7 +265,7 @@
       const cleanF = item.f.toLowerCase().trim();
       if (cleanF.startsWith('le ') || cleanF.startsWith("l'")) tags.push('Masculine');
       if (cleanF.startsWith('la ')) tags.push('Feminine');
-      return { french: item.f, english: item.e, tags, tempId: crypto.randomUUID() };
+      return { french: item.f, english: item.e, pronunciation: item.p, tags, tempId: crypto.randomUUID() };
     });
     ocrStatus = "";
   }
@@ -353,13 +284,18 @@
   }
 
   async function finalImport() {
+    if (isTranslating) return;
     try {
       const finalDeck = importNewDeckName || selectedExistDeck || "General";
+      const allExisting = await db.getAllCards();
+      
+      // Create a map to quickly find existing cards by French text
+      const existingMap = new Map(allExisting.map(c => [c.french?.toLowerCase().trim(), c]));
+      
       const database = await db.init();
       const transaction = database.transaction(['customCards'], 'readwrite');
       const store = transaction.objectStore('customCards');
       
-      const existingFrench = new Set(allCards.map(c => c.french?.toLowerCase().trim()));
       let addedCount = 0;
 
       // Snapshot to avoid Proxy issues with IndexedDB/Set
@@ -367,22 +303,44 @@
 
       cardsToImport.forEach(card => {
         const cleanF = card.french?.toLowerCase().trim();
-        if (cleanF && !existingFrench.has(cleanF)) {
-          const finalTags = [...new Set([...card.tags, ...(globalTag ? [globalTag] : [])])];
-          
-          store.add({ 
-            id: crypto.randomUUID(),
-            french: card.french, 
-            english: card.english, 
-            tags: finalTags, 
-            deck: finalDeck, 
-            created: Date.now() 
-          });
-          addedCount++;
-        }
+        if (!cleanF) return;
+
+        const existing = existingMap.get(cleanF);
+        const finalTags = [...new Set([...(existing?.tags || []), ...card.tags, ...(globalTag ? [globalTag] : [])])];
+        
+        // .put() updates if the ID matches, ensuring 3rd column info is saved over old data
+        store.put({ 
+          id: existing ? existing.id : crypto.randomUUID(),
+          french: card.french, 
+          english: card.english, 
+          pronunciation: card.pronunciation,
+          tags: finalTags, 
+          deck: existing ? existing.deck : finalDeck, 
+          created: existing ? existing.created : Date.now() 
+        });
+        addedCount++;
       });
 
-      transaction.oncomplete = () => {
+      transaction.oncomplete = async () => {
+        // Auto-Sync to Cloud if user is logged in
+        const savedPhrase = localStorage.getItem('fledge_vault_phrase');
+        const savedUserID = localStorage.getItem('fledge_user_id');
+
+        if (savedPhrase && savedUserID) {
+          try {
+            const allCards = await db.getAllCards();
+            const encryptedData = await encryptData(allCards, savedPhrase);
+            
+            await fetch('/api/locker', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ lockerId: savedUserID, encryptedData })
+            });
+          } catch (syncErr) {
+            console.error("Cloud auto-sync failed after import:", syncErr);
+          }
+        }
+        
         onComplete(addedCount);
       };
       
@@ -409,98 +367,34 @@
     </div>
   {/if}
 
-  <!-- STEP 1: CHOICE -->
-  {#if importStep === 'choice'}
-    <div class="choice-container">
-      <!-- CHOICE A: RESTORE -->
-      <button class="choice-card" onclick={() => importStep = 'restore'}>
-        <span class="choice-icon">🔄</span>
-        <h4>Restore Library</h4>
-        <p>Restore your entire library from a secure backup.</p>
-      </button>
-
-      <div class="choice-divider">OR</div>
-
-      <!-- CHOICE B: IMPORT -->
-      <button class="choice-card" onclick={() => importStep = 'upload'}>
-        <span class="choice-icon">📄</span>
-        <h4>New Data Import</h4>
-        <p>Import new cards from <b>PDF, Photos, or CSV</b>.</p>
-      </button>
-    </div>
-
-  <!-- STEP 2A: RESTORE (BLOB) -->
-  {:else if importStep === 'restore'}
-    <div class="content">
-      <p class="desc">Scan the QR code from your old device or paste the Recovery Link.</p>
-
-      <div class="field">
-        <label>Recovery Link</label>
-        <textarea 
-          bind:value={importBlob} 
-          placeholder="https://..." 
-          rows="2"
-        ></textarea>
-        
-        {#if !showScanner}
-        <div class="scan-controls">
-          <button class="btn-swap-ghost" onclick={toggleScanner}>📷 Scan QR Code</button>
-        </div>
-        {/if}
-
-        {#if showScanner}
-          <div id="qr-reader"></div>
-        {/if}
-      </div>
-
-      <div class="field">
-        <label>Passphrase</label>
-        <input 
-          type="text" 
-          bind:value={passphrase} 
-          placeholder="e.g. apple-table-neon-jump"
-        />
-      </div>
-
-      <div class="action-footer">
-        <button class="btn-secondary" onclick={() => showScanner ? toggleScanner() : importStep = 'choice'}>{showScanner ? 'Stop Scan' : 'Back'}</button>
-        <button class="btn-restore" onclick={handleRestoreBlob}>Restore Data</button>
-      </div>
-
-      {#if restoreStatus}
-        <div class="status {isRestoreError ? 'error' : 'success'}">
-          {restoreStatus}
-        </div>
-      {/if}
-    </div>
-
-  <!-- STEP 2B: UPLOAD (NEW IMPORT) -->
-  {:else if importStep === 'upload'}
+  <!-- STEP 1: UPLOAD -->
+  {#if importStep === 'upload'}
     <div class="upload-zone choice-card" role="button" tabindex="0" onclick={() => fileInput.click()} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && fileInput.click()}>
       <span class="choice-icon">📁</span>
       <h4>Upload Document</h4>
       <p>Select a <b>CSV, TXT, PDF, or Image</b>.</p>
-      <button class="btn-swap-ghost" style="margin-top: 20px;" onclick={(e) => { e.stopPropagation(); importStep = 'choice'; }}>Back</button>
     </div>
     <input type="file" accept=".csv,.txt,.pdf,image/*" bind:this={fileInput} onchange={handleFileSelect} hidden />
 
-  <!-- STEP 3: PROCESSING -->
+  <!-- STEP 2: PROCESSING -->
   {:else if importStep === 'processing'}
     <div class="processing-zone">
       <div class="spinner"></div>
       <p>{ocrStatus || "Processing..."}</p>
-      <button class="btn-swap-ghost" onclick={() => importStep = 'choice'}>Cancel</button>
     </div>
 
-  <!-- STEP 4: REFINE -->
+  <!-- STEP 3: REFINE -->
   {:else if importStep === 'refine'}
     <div class="import-refine">
       <div class="settings-grid">
         <div class="header-row">
           <span class="small-label">Items: {importPreview.length}</span>
           <div style="display: flex; gap: 8px;">
-            <button class="btn-swap-ghost" onclick={translateAll}>🌐 Auto-Translate</button>
-            <button class="btn-swap-ghost" onclick={() => { swapColumns = !swapColumns; createPreviewFromLines(importPreview.map(p => `${p.french},${p.english}`), false); }}>🔄 Swap Cols</button>
+            <button class="btn-swap-ghost" onclick={translateAll} disabled={isTranslating}>
+              {isTranslating ? 'Translating...' : '🌐 Auto-Translate'}
+            </button>
+            <button class="btn-swap-ghost" onclick={rotateColumns}>🔄 Shift Order</button>
+            <button class="btn-swap-ghost" onclick={swapTranslatePronunciation}>⇄ Swap E/P</button>
           </div>
         </div>
 
@@ -535,8 +429,19 @@
           <div class="import-row">
             <button class="btn-del-top" onclick={() => importPreview = importPreview.filter(p => p.tempId !== card.tempId)}>✕</button>
             <div class="row-inputs">
-              <div class="flex-row"><input class="f-input" bind:value={card.french} /><button class="mini-btn" onclick={() => translateRow(i)}>🌐</button></div>
-              <input class="e-input" bind:value={card.english} />
+              <div class="flex-row">
+                <span class="slot-label fr">FR</span>
+                <input class="f-input" bind:value={card.french} />
+                <button class="mini-btn" onclick={() => translateRow(i)} disabled={isTranslating}>🌐</button>
+              </div>
+              <div class="flex-row">
+                <span class="slot-label en">EN</span>
+                <input class="e-input" bind:value={card.english} />
+              </div>
+              <div class="flex-row">
+                <span class="slot-label pr">PR</span>
+                <input class="p-input" bind:value={card.pronunciation} placeholder="Pronunciation (optional)..." />
+              </div>
               <div class="row-tags">
                 {#each TAG_PRESETS as tag}
                   {@const isActive = card.tags.includes(tag) || globalTag === tag}
@@ -552,8 +457,10 @@
       </div>
 
       <div class="action-footer">
-        <button class="btn-secondary" onclick={onCancel}>Cancel</button>
-        <button class="btn-primary" onclick={finalImport}>Import All</button>
+        <button class="btn-secondary" onclick={onCancel} disabled={isTranslating}>Cancel</button>
+        <button class="btn-primary" onclick={finalImport} disabled={isTranslating}>
+          {isTranslating ? 'Fetching Translations...' : 'Import All'}
+        </button>
       </div>
     </div>
   {/if}
@@ -565,38 +472,22 @@
   .title { margin: 0; color: #60a5fa; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px; }
   .btn-close { background: none; border: none; color: #8C9BAB; font-size: 1.5rem; cursor: pointer; }
   
-  .desc { color: #8C9BAB; font-size: 0.85rem; margin-bottom: 20px; }
-  
   /* CHOICE UI */
-  .choice-container { display: flex; flex-direction: column; gap: 15px; }
   .choice-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 16px; text-align: center; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .choice-card:hover { background: rgba(96, 165, 250, 0.1); border-color: #60a5fa; transform: translateY(-2px); }
   .choice-icon { font-size: 2rem; display: block; margin-bottom: 10px; }
   .choice-card h4 { margin: 0 0 5px 0; color: white; }
   .choice-card p { margin: 0; font-size: 0.9rem; color: #8C9BAB; }
-  .choice-divider { text-align: center; font-size: 0.7rem; color: #475569; letter-spacing: 2px; margin: 5px 0; }
   
   /* RESTORE & INPUTS */
-  .field { margin-bottom: 15px; }
-  label { display: block; color: #94a3b8; font-size: 0.75rem; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; }
-  textarea, input { width: 100%; background: #1e293b; color: white; border: 1px solid #334155; padding: 12px; border-radius: 8px; font-family: inherit; box-sizing: border-box; }
-  textarea:focus, input:focus { border-color: #60a5fa; outline: none; }
-  .scan-controls { text-align: center; margin: -5px 0 15px 0; }
-  #qr-reader { width: 100%; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid #334155; }
-  :global(#qr-reader video) { width: 100% !important; height: auto !important; }
-  :global(#qr-reader__dashboard_section_swaplink) { display: none !important; }
-  :global(#qr-reader__dashboard_section_csr > div:first-child) { display: none !important; }
-
+  input { width: 100%; background: #1e293b; color: white; border: 1px solid #334155; padding: 12px; border-radius: 8px; font-family: inherit; box-sizing: border-box; }
+  input:focus { border-color: #60a5fa; outline: none; }
   
   /* ACTION BUTTONS */
   .action-footer { display: flex; gap: 10px; margin-top: 15px; }
-  .btn-restore { flex: 2; background: #60a5fa; color: #0f172a; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
   .btn-primary { flex: 2; background: #2dd4bf; color: #0f172a; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
   .btn-secondary { flex: 1; background: #334155; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 1rem; }
   
-  .status { margin-top: 15px; padding: 10px; border-radius: 6px; font-size: 0.9rem; text-align: center; }
-  .status.error { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-  .status.success { background: rgba(45, 212, 191, 0.2); color: #2dd4bf; border: 1px solid rgba(45, 212, 191, 0.3); }
   
   /* PROCESSING */
   .processing-zone { padding: 40px; text-align: center; background: rgba(30, 41, 59, 0.5); border-radius: 12px; }
@@ -618,8 +509,14 @@
   .btn-del-top { position: absolute; top: 8px; right: 8px; background: transparent; border: none; color: #ef4444; cursor: pointer; font-size: 1.2rem; line-height: 0.5; }
   .row-inputs { flex: 1; display: flex; flex-direction: column; gap: 4px; }
   .flex-row { display: flex; gap: 5px; width: 90%; }
+  .slot-label { font-size: 0.55rem; font-weight: 900; padding: 2px 4px; border-radius: 4px; min-width: 22px; text-align: center; display: inline-flex; align-items: center; justify-content: center; height: 14px; margin-top: 4px; flex-shrink: 0; }
+  .slot-label.fr { background: rgba(45, 212, 191, 0.1); color: #2dd4bf; border: 1px solid rgba(45, 212, 191, 0.2); }
+  .slot-label.en { background: rgba(140, 155, 171, 0.1); color: #8C9BAB; border: 1px solid rgba(140, 155, 171, 0.2); }
+  .slot-label.pr { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2); }
+
   .f-input { flex: 1; background: transparent; border: none; color: #2dd4bf; border-bottom: 1px solid #334155; }
   .e-input { background: transparent; border: none; color: #8C9BAB; width: 90%; }
+  .p-input { background: transparent; border: none; color: #fbbf24; font-size: 0.8rem; font-style: italic; width: 90%; }
   .tag-chip { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; cursor: pointer; margin-right: 4px; }
   .mini-btn { background: transparent; border: 1px solid #334155; border-radius: 4px; cursor: pointer; padding: 2px 4px; color: white; }
   

@@ -1,5 +1,14 @@
 // Uses the Web Crypto API for secure, in-browser encryption
 
+// Standard EFF Short Wordlist (50 words for example, use a full 2048-word BIP39 list for production)
+const WORD_LIST = [
+  'acid', 'altar', 'back', 'beam', 'cage', 'cake', 'dash', 'data', 'echo', 'edge', 
+  'face', 'film', 'game', 'gate', 'halo', 'hang', 'icon', 'item', 'jazz', 'jump', 
+  'kept', 'kind', 'lava', 'leaf', 'mask', 'menu', 'neon', 'next', 'oath', 'open', 
+  'palm', 'path', 'quiz', 'quit', 'race', 'rare', 'safe', 'scan', 'tail', 'tame', 
+  'unit', 'user', 'vibe', 'view', 'walk', 'wave', 'yard', 'yoga', 'zero', 'zone'
+];
+
 export async function encryptData(data, passphrase) {
   const enc = new TextEncoder();
   
@@ -17,7 +26,7 @@ export async function encryptData(data, passphrase) {
   );
 
   const key = await crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+    { name: "PBKDF2", salt, iterations: 600000, hash: "SHA-256" }, // OWASP recommended iterations
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     false,
@@ -39,7 +48,8 @@ export async function encryptData(data, passphrase) {
 
   // 5. Convert to Base64 string for easy storage/transfer
   let binary = '';
-  for (let i = 0; i < buffer.byteLength; i++) {
+  const len = buffer.byteLength;
+  for (let i = 0; i < len; i++) {
     binary += String.fromCharCode(buffer[i]);
   }
   return btoa(binary);
@@ -51,10 +61,7 @@ export async function decryptData(encryptedBlob, passphrase) {
 
   // 1. Decode Base64
   const binaryString = atob(encryptedBlob);
-  const buffer = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    buffer[i] = binaryString.charCodeAt(i);
-  }
+  const buffer = Uint8Array.from(binaryString, c => c.charCodeAt(0));
 
   // 2. Extract Salt, IV, and Ciphertext
   const salt = buffer.slice(0, 16);
@@ -71,7 +78,7 @@ export async function decryptData(encryptedBlob, passphrase) {
   );
 
   const key = await crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+    { name: "PBKDF2", salt, iterations: 600000, hash: "SHA-256" }, // OWASP recommended iterations
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     false,
@@ -88,9 +95,16 @@ export async function decryptData(encryptedBlob, passphrase) {
   return JSON.parse(dec.decode(decryptedContent));
 }
 
-export function generatePassphrase(length = 4) {
-  const words = ['alpha', 'bravo', 'card', 'delta', 'echo', 'fox', 'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike', 'november', 'oscar', 'papa', 'quebec', 'romeo', 'sierra', 'tango', 'uniform', 'victor', 'whiskey', 'xray', 'yankee', 'zulu'];
-  const values = new Uint32Array(length);
+// Generates a deterministic ID from the passphrase so the user always hits the same "directory"
+export async function deriveLockerId(passphrase) {
+  const enc = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', enc.encode(passphrase));
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+export function generatePassphrase(count = 12) {
+  const values = new Uint32Array(count);
   crypto.getRandomValues(values);
-  return Array.from(values).map(v => words[v % words.length]).join('-');
+  return Array.from(values).map(v => WORD_LIST[v % WORD_LIST.length]).join('-');
 }

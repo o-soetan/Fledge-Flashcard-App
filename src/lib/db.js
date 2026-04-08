@@ -66,5 +66,75 @@ export const db = {
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
     });
+  },
+
+  async clearAll() {
+    if (!browser) return;
+    const database = await this.init();
+    if (!database) return;
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction(['customCards'], 'readwrite');
+      const store = transaction.objectStore('customCards');
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  // --- CLOUD SYNC METHODS ---
+
+  /**
+   * Downloads the "suitcase" from the cloud and merges it with local IndexedDB
+   */
+  async syncWithCloud(lockerId, syncToken) {
+    if (!browser || !lockerId || !syncToken) return;
+    try {
+      console.log(`[DB] Syncing with cloud for user: ${lockerId}`);
+      const response = await fetch('/api/locker', {
+        headers: {
+          'x-locker-id': lockerId,
+          'x-sync-token': syncToken
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) console.log('[DB] No cloud data found for this user yet.');
+        return;
+      }
+
+      const { encryptedData } = await response.json();
+      if (encryptedData) {
+        // Parse the suitcase. In a production app, you'd decrypt this first.
+        const remoteCards = JSON.parse(encryptedData);
+        await this.importCards(remoteCards);
+        console.log(`[DB] Successfully synced ${remoteCards.length} cards from cloud.`);
+      }
+    } catch (err) {
+      console.error('[DB] Cloud sync failed:', err);
+    }
+  },
+
+  /**
+   * Uploads the entire local collection to the cloud locker
+   */
+  async pushToCloud(cardIgnored, lockerId, syncToken) {
+    if (!browser || !lockerId || !syncToken) return;
+    try {
+      const allCards = await this.getAllCards();
+      await fetch('/api/locker', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-locker-id': lockerId,
+          'x-sync-token': syncToken
+        },
+        body: JSON.stringify({
+          encryptedData: JSON.stringify(allCards)
+        })
+      });
+      console.log('[DB] Suitcase uploaded to cloud.');
+    } catch (err) {
+      console.error('[DB] Cloud push failed:', err);
+    }
   }
 };

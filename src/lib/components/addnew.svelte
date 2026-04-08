@@ -200,8 +200,8 @@
     </div>
 
     <AudioRecorder 
-      audioSlots={cardAudio} 
-      onUpdate={(updated) => cardAudio = updated} 
+      bind:audioSlots={cardAudio} 
+      onUpdate={() => {}} 
       text={french}
     />
 

@@ -2,11 +2,11 @@
   import { onMount } from 'svelte';
   import { db } from '$lib/db';
 
-  export let onNavigate;
+  let { onNavigate } = $props();
 
-  let allCards = [];
-  let tagStats = []; // Array of { name: string, count: number }
-  let searchTerm = "";
+  let allCards = $state([]);
+  let tagStats = $state([]); // Array of { name: string, count: number }
+  let searchTerm = $state("");
 
   async function loadTagData() {
     const database = await db.init();
@@ -36,14 +36,14 @@
 
   onMount(loadTagData);
 
-  $: filteredTags = tagStats.filter(tag => 
+  let filteredTags = $derived(tagStats.filter(tag => 
     tag.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ));
 </script>
 
 <div class="tag-decks-container">
   <header class="header-row">
-    <button class="btn-exit-screenshot" on:click={() => onNavigate('dashboard')}>
+    <button class="btn-exit-screenshot" onclick={() => onNavigate('dashboard')}>
       ←
     </button>
     <h2 class="title">Tag Decks</h2>
@@ -62,7 +62,7 @@
 
   <main class="tags-grid">
     {#each filteredTags as tag}
-      <button class="tag-tile" on:click={() => onNavigate('study', { filterTag: tag.name })}>
+      <button class="tag-tile" onclick={() => onNavigate('study', { filterTag: tag.name })}>
         <div class="tag-info">
           <span class="tag-name">#{tag.name}</span>
           <span class="tag-count">{tag.count} {tag.count === 1 ? 'card' : 'cards'}</span>

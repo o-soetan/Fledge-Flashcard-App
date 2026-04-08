@@ -179,10 +179,10 @@
     </div>
 
     <div class="audio-section-header">
-      <label class="label-small">
+      <span class="label-small">
         Audio ({filledSlots}/3)
         {#if uploadStatus}<span class="upload-feedback">{uploadStatus}</span>{/if}
-      </label>
+      </span>
       <div class="audio-actions">
         {#if filledSlots > 0}
           <button type="button" class="btn-clear-audio" on:click={clearAllAudio}>🗑️ Clear</button>
@@ -214,7 +214,7 @@
         {#if !showDeckInput}
           <button type="button" class="btn-outline small-outline" on:click={() => showDeckInput = true}>+ New Deck</button>
         {:else}
-          <div class="inline-input"> 
+          <div class="inline-input">
             <input bind:value={newDeckName} placeholder="Name..." />
             <button type="button" on:click={addNewDeck}>Add</button>
           </div>
@@ -229,10 +229,10 @@
 
     <div class="input-group">
       <label for="notes-textarea">Notes</label>
-      <textarea bind:value={notes} placeholder="Context or examples..." class="custom-textarea"></textarea>
+      <textarea id="notes-textarea" bind:value={notes} placeholder="Context or examples..." class="custom-textarea"></textarea>
     </div>
 
-    <label class="label-small">Tags</label>
+    <span class="label-small">Tags</span>
     <div class="chip-container">
       {#each allAvailableTags as tag}
         {@const isActive = selectedTags.includes(tag)}
@@ -242,7 +242,7 @@
         <button type="button" class="tag-chip btn-custom-toggle" on:click={() => showTagInput = true}>+ CUSTOM</button>
       {:else}
         <div class="tag-input-wrapper">
-          <input bind:value={newTagName} placeholder="NAME..." on:keydown={(e) => e.key === 'Enter' && addCustomTag()} on:blur={() => !newTagName && (showTagInput = false)} />
+          <input bind:value={newTagName} placeholder="NAME..." on:keydown={(e) => e.key === 'Enter' && addCustomTag()} on:blur={() => !newTagName && (showTagInput = false)} autoFocus />
           <button type="button" class="btn-confirm-tag" on:click={addCustomTag}>OK</button>
         </div>
       {/if}

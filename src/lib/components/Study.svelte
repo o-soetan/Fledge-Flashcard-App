@@ -9,7 +9,7 @@
   let cards = $state([]);
   let currentIndex = $state(0);
   let showFront = $state(true);
-  let isShuffled = $state(false);
+  let isShuffled = $state(false); 
   let isStarted = $state(false);
   let sessionLimit = $state(0);
   let quizMode = $state(true);
@@ -18,10 +18,10 @@
   // Reactive helper for user-scoping
   let userId = $derived(user?.id || 'guest');
 
-  // Session Stats
+  // Session Stats 
   let sessionResults = $state({ correct: 0, incorrect: 0, skipped: 0 });
   let struggledCards = $state([]);
-  let selectedDeck = $state(params.deck || 'General');
+  let selectedDeck = $derived(params.deck || 'General');
   
   // Audio Playback & Recording State
   let activeAudioIndex = $state(0);
@@ -468,18 +468,20 @@
         {/if}
 
         <div class="preview-settings-row">
-          <div class="timer-config"> 
+          <div class="timer-config">
+            <span class="label-small">Study Timer</span>
             <button class="timer-toggle-mini {useTimer ? 'on' : ''}" onclick={() => useTimer = !useTimer} aria-label="Toggle Study Timer">
               {useTimer ? '⏱ Enabled' : '⏱ Disabled'}
             </button>
           </div>
-          <div class="timer-config"> 
+          <div class="timer-config">
+            <span class="label-small">Quiz Mode</span>
             <button class="timer-toggle-mini {quizMode ? 'on' : ''}" onclick={() => quizMode = !quizMode} aria-label="Toggle Quiz Mode">
               {quizMode ? '🎯 Quiz ON' : '📖 Study Only'}
             </button>
           </div>
         </div>
- 
+
         {#if filteredCount > 25}
           <div class="session-selector">
             <label for="session-size" class="label-small">Session Size</label>
@@ -488,7 +490,6 @@
                 <button 
                   class="limit-btn {sessionLimit === limit ? 'selected' : ''}" 
                   onclick={() => sessionLimit = limit}
-                  aria-label="Set session size to {limit}"
                 >
                   {limit}
                 </button>
@@ -498,7 +499,6 @@
                   type="number" 
                   class="limit-input {![0, 10, 15, 20, 25].includes(sessionLimit) ? 'active' : ''}" 
                   placeholder="#" 
-                  id="session-size"
                   bind:value={sessionLimit}
                   title="Custom quantity"
                 />
@@ -507,19 +507,19 @@
                 class="limit-btn {sessionLimit === 0 ? 'selected' : ''}" 
                 onclick={() => sessionLimit = 0}
               >
-                All Cards
+                All
               </button>
             </div>
           </div>
         {/if}
- 
+
         <button class="btn-start-session" onclick={startSession}>{quizMode ? 'Start Quiz' : 'Start Studying'}</button>
       </div>
     </div>
   {:else if isStarted && cards.length > 0}
     <div class="progress">{currentIndex + 1} / {cards.length}</div>
 
-    <div class="card" role="button" tabindex="0" onclick={() => (showFront = !showFront)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showFront = !showFront; } }}>
+    <div class="card" onclick={() => (showFront = !showFront)}>
       <div class="card-inner-content">
         {#if showFront}
           {@const word = frontLanguage === 'en' ? cards[currentIndex].english : cards[currentIndex].french}
@@ -611,12 +611,12 @@
           <button class="tab-btn {viewMode === 'deck' ? 'active' : ''}" onclick={() => viewMode = 'deck'}>Deck Preview</button>
         </div>
         
-        <div class="modal-scroll-area"> 
+        <div class="modal-scroll-area">
           {#if viewMode === 'card'}
           <div class="modal-input-group">
             <label for="edit-english" class="first-label">English</label>
             <input id="edit-english" bind:value={cards[currentIndex].english} />
-            <label for="edit-french">French</label> 
+            <label for="edit-french">French</label>
             <input id="edit-french" bind:value={cards[currentIndex].french} />
 
             <label for="audio-slots">Audio Management</label>
@@ -626,13 +626,13 @@
               text={cards[currentIndex].french}
               mode="management"
             />
-             
+            
             <label for="edit-pronunciation">Pronunciation</label>
-            <input id="edit-pronunciation" bind:value={cards[currentIndex].pronunciation} /> 
+            <input id="edit-pronunciation" bind:value={cards[currentIndex].pronunciation} />
             <label for="edit-notes">Notes</label>
             <textarea id="edit-notes" bind:value={cards[currentIndex].notes}></textarea>
 
-            <label>Tags</label>
+            <span class="label-small">Tags</span>
             <div class="tag-selection-grid">
               {#each existingTags as tag}
                 {@const isActive = cards[currentIndex].tags?.includes(tag)}
@@ -647,15 +647,15 @@
                 </div>
               {/if}
             </div>
-          </div> 
+          </div>
           {:else}
             <div class="modal-input-group">
-              <label class="first-label">Front Language</label>
+              <span class="label-small first-label">Front Language</span>
               <div class="toggle-switch-row">
                 <button class="choice-btn {frontLanguage === 'en' ? 'active' : ''}" onclick={() => frontLanguage = 'en'}>English</button>
                 <button class="choice-btn {frontLanguage === 'fr' ? 'active' : ''}" onclick={() => frontLanguage = 'fr'}>French</button>
               </div>
- 
+
               <label for="edit-deck-notes">Deck Notes & Preview</label>
               <textarea 
                 id="edit-deck-notes"
@@ -665,7 +665,7 @@
               ></textarea>
 
               <div class="timer-toggle-row">
-                <label>Study Timer</label>
+                <span class="label-small">Study Timer</span>
                 <button 
                   class="timer-toggle-btn {useTimer ? 'on' : ''}" 
                   onclick={() => { useTimer = !useTimer; toggleTimer(); }}
@@ -784,18 +784,6 @@
   .btn-audio-play-blended { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.7); border-radius: 50%; width: 40px; height: 40px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
   .btn-audio-play-blended.is-playing { background: rgba(45, 212, 191, 0.2); border-color: #2dd4bf; color: #2dd4bf; }
   .btn-audio-play-blended:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
-
-  .audio-management-list { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 12px; margin-top: 5px; }
-  .audio-row { display: flex; align-items: center; justify-content: space-between; padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .audio-row:last-child { border-bottom: none; }
-  .audio-row.is-active-slot { background: rgba(45, 212, 191, 0.05); border-radius: 8px; }
-  .slot-select-indicator { background: none; border: none; color: #8C9BAB; font-size: 0.75rem; font-weight: bold; cursor: pointer; text-align: left; width: 70px; }
-  .audio-actions { display: flex; gap: 8px; }
-  .action-btn { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
-  .rec-start { background: #334155; color: white; }
-  .rec-stop { background: #ef4444; color: white; animation: pulse 1s infinite; }
-  .act-play { background: #2dd4bf; color: #0f172a; }
-  .act-play.pulse { animation: pulse 1.5s infinite; }
 
   @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 

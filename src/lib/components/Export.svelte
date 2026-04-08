@@ -151,18 +151,4 @@
   .btn-primary { background: #a78bfa; color: #0f172a; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1rem; }
   .btn-primary:disabled { opacity: 0.7; cursor: wait; }
 
-  .step { margin-bottom: 20px; }
-  label { display: block; color: #2dd4bf; font-size: 0.8rem; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
-  .code-box { display: flex; justify-content: space-between; background: #000; padding: 12px; border-radius: 6px; align-items: center; border: 1px solid #334155; }
-  code { color: #fff; font-family: monospace; font-size: 1.1rem; letter-spacing: 0.5px; }
-  .btn-copy { background: #334155; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-  .warning { color: #ef4444; font-size: 0.8rem; margin-top: 6px; }
-
-  textarea { width: 100%; background: #000; color: #8C9BAB; border: 1px solid #334155; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 0.8rem; resize: none; margin-bottom: 8px; box-sizing: border-box; }
-  .action-row { display: flex; gap: 8px; }
-  .btn-copy-lg { flex: 1; background: #1e293b; color: white; border: 1px solid #334155; padding: 10px; border-radius: 6px; cursor: pointer; }
-  .btn-copy-lg:hover { background: #334155; }
-  .btn-icon { background: #1e293b; color: white; border: 1px solid #334155; padding: 0 15px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
-  .qr-box { margin-top: 15px; padding: 15px; border-radius: 8px; display: flex; justify-content: center; background: #0f172a; border: 1px solid #334155;}
-  canvas { border-radius: 4px; }
 </style>

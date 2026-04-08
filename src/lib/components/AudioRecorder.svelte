@@ -107,7 +107,7 @@
 {#if mode !== 'headless'}
   <div class="audio-manager">
     {#if mode === 'grid'}
-      <label class="label-caps">Pronunciation Slots</label>
+      <span class="label-caps">Pronunciation Slots</span>
       <div class="slots-grid">
         {#each [0, 1, 2] as i}
           <div class="slot-card {(i === 0 || audioSlots[i]) ? 'has-data' : ''} {recordingSlot === i ? 'recording' : ''}">

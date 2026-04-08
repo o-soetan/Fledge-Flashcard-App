@@ -11,6 +11,7 @@
   let email = $state('');
   let recoveryPhrase = $state('');
   let userID = $state('');
+  let syncToken = $state('');
   let isCopying = $state(false);
   let showLogin = $state(false); // Toggle between Create and Link
   let loginPhrase = $state('');

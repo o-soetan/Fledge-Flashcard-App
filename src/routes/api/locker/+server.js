@@ -48,10 +48,10 @@ export async function POST({ request, getClientAddress }) {
         }
 
         const body = await request.json();
-        const { encryptedData } = body;
-        // Security: Prefer header over body for ID consistency
-        const lockerId = request.headers.get('x-locker-id');
+        const { encryptedData, lockerId: bodyLockerId } = body;
         
+        const lockerId = request.headers.get('x-locker-id') || bodyLockerId;
+
         if (!lockerId || !isValidId(lockerId)) {
             return json({ error: 'Invalid or missing locker ID' }, { status: 400 });
         }

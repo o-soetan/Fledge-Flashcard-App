@@ -169,13 +169,13 @@
 
   <div class="add-card-form">
     <div class="input-group">
-      <label>English (Front)</label>
-      <input bind:value={english} placeholder="e.g. Bread" />
+      <label for="english-input">English (Front)</label>
+      <input id="english-input" bind:value={english} placeholder="e.g. Bread" />
     </div>
 
     <div class="input-group">
-      <label>French (Back)</label>
-      <input bind:value={french} placeholder="e.g. le pain" />
+      <label for="french-input">French (Back)</label>
+      <input id="french-input" bind:value={french} placeholder="e.g. le pain" />
     </div>
 
     <div class="audio-section-header">
@@ -200,13 +200,13 @@
     </div>
 
     <AudioRecorder 
-      bind:audioSlots={cardAudio} 
-      onUpdate={() => {}} 
+      audioSlots={cardAudio} 
+      onUpdate={(updated) => cardAudio = updated} 
       text={french}
     />
 
     <div class="input-group">
-      <label>Select Deck</label>
+      <label for="deck-select">Select Deck</label>
       <div class="chip-container">
         {#each userDecks as deck}
           <button type="button" class="chip {selectedDeck === deck ? 'active' : ''}" on:click={() => selectedDeck = deck}>{deck}</button>
@@ -214,7 +214,7 @@
         {#if !showDeckInput}
           <button type="button" class="btn-outline small-outline" on:click={() => showDeckInput = true}>+ New Deck</button>
         {:else}
-          <div class="inline-input">
+          <div class="inline-input"> 
             <input bind:value={newDeckName} placeholder="Name..." />
             <button type="button" on:click={addNewDeck}>Add</button>
           </div>
@@ -223,12 +223,12 @@
     </div>
 
     <div class="input-group">
-      <label>Pronunciation</label>
-      <input bind:value={pronunciation} placeholder="How it sounds..." />
+      <label for="pronunciation-input">Pronunciation</label>
+      <input id="pronunciation-input" bind:value={pronunciation} placeholder="How it sounds..." />
     </div>
 
     <div class="input-group">
-      <label>Notes</label>
+      <label for="notes-textarea">Notes</label>
       <textarea bind:value={notes} placeholder="Context or examples..." class="custom-textarea"></textarea>
     </div>
 
@@ -242,7 +242,7 @@
         <button type="button" class="tag-chip btn-custom-toggle" on:click={() => showTagInput = true}>+ CUSTOM</button>
       {:else}
         <div class="tag-input-wrapper">
-          <input bind:value={newTagName} placeholder="NAME..." on:keydown={(e) => e.key === 'Enter' && addCustomTag()} on:blur={() => !newTagName && (showTagInput = false)} autoFocus />
+          <input bind:value={newTagName} placeholder="NAME..." on:keydown={(e) => e.key === 'Enter' && addCustomTag()} on:blur={() => !newTagName && (showTagInput = false)} />
           <button type="button" class="btn-confirm-tag" on:click={addCustomTag}>OK</button>
         </div>
       {/if}

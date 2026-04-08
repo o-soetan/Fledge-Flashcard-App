@@ -468,28 +468,27 @@
         {/if}
 
         <div class="preview-settings-row">
-          <div class="timer-config">
-            <label class="label-small">Study Timer</label>
-            <button class="timer-toggle-mini {useTimer ? 'on' : ''}" onclick={() => useTimer = !useTimer}>
+          <div class="timer-config"> 
+            <button class="timer-toggle-mini {useTimer ? 'on' : ''}" onclick={() => useTimer = !useTimer} aria-label="Toggle Study Timer">
               {useTimer ? '⏱ Enabled' : '⏱ Disabled'}
             </button>
           </div>
-          <div class="timer-config">
-            <label class="label-small">Quiz Mode</label>
-            <button class="timer-toggle-mini {quizMode ? 'on' : ''}" onclick={() => quizMode = !quizMode}>
+          <div class="timer-config"> 
+            <button class="timer-toggle-mini {quizMode ? 'on' : ''}" onclick={() => quizMode = !quizMode} aria-label="Toggle Quiz Mode">
               {quizMode ? '🎯 Quiz ON' : '📖 Study Only'}
             </button>
           </div>
         </div>
-
+ 
         {#if filteredCount > 25}
           <div class="session-selector">
-            <label class="label-small">Session Size</label>
+            <label for="session-size" class="label-small">Session Size</label>
             <div class="limit-grid">
               {#each [10, 15, 20, 25] as limit}
                 <button 
                   class="limit-btn {sessionLimit === limit ? 'selected' : ''}" 
                   onclick={() => sessionLimit = limit}
+                  aria-label="Set session size to {limit}"
                 >
                   {limit}
                 </button>
@@ -499,6 +498,7 @@
                   type="number" 
                   class="limit-input {![0, 10, 15, 20, 25].includes(sessionLimit) ? 'active' : ''}" 
                   placeholder="#" 
+                  id="session-size"
                   bind:value={sessionLimit}
                   title="Custom quantity"
                 />
@@ -507,19 +507,19 @@
                 class="limit-btn {sessionLimit === 0 ? 'selected' : ''}" 
                 onclick={() => sessionLimit = 0}
               >
-                All
+                All Cards
               </button>
             </div>
           </div>
         {/if}
-
+ 
         <button class="btn-start-session" onclick={startSession}>{quizMode ? 'Start Quiz' : 'Start Studying'}</button>
       </div>
     </div>
   {:else if isStarted && cards.length > 0}
     <div class="progress">{currentIndex + 1} / {cards.length}</div>
 
-    <div class="card" onclick={() => (showFront = !showFront)}>
+    <div class="card" role="button" tabindex="0" onclick={() => (showFront = !showFront)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showFront = !showFront; } }}>
       <div class="card-inner-content">
         {#if showFront}
           {@const word = frontLanguage === 'en' ? cards[currentIndex].english : cards[currentIndex].french}
@@ -611,12 +611,12 @@
           <button class="tab-btn {viewMode === 'deck' ? 'active' : ''}" onclick={() => viewMode = 'deck'}>Deck Preview</button>
         </div>
         
-        <div class="modal-scroll-area">
+        <div class="modal-scroll-area"> 
           {#if viewMode === 'card'}
           <div class="modal-input-group">
             <label for="edit-english" class="first-label">English</label>
             <input id="edit-english" bind:value={cards[currentIndex].english} />
-            <label for="edit-french">French</label>
+            <label for="edit-french">French</label> 
             <input id="edit-french" bind:value={cards[currentIndex].french} />
 
             <label for="audio-slots">Audio Management</label>
@@ -626,9 +626,9 @@
               text={cards[currentIndex].french}
               mode="management"
             />
-            
+             
             <label for="edit-pronunciation">Pronunciation</label>
-            <input id="edit-pronunciation" bind:value={cards[currentIndex].pronunciation} />
+            <input id="edit-pronunciation" bind:value={cards[currentIndex].pronunciation} /> 
             <label for="edit-notes">Notes</label>
             <textarea id="edit-notes" bind:value={cards[currentIndex].notes}></textarea>
 
@@ -647,7 +647,7 @@
                 </div>
               {/if}
             </div>
-          </div>
+          </div> 
           {:else}
             <div class="modal-input-group">
               <label class="first-label">Front Language</label>
@@ -655,7 +655,7 @@
                 <button class="choice-btn {frontLanguage === 'en' ? 'active' : ''}" onclick={() => frontLanguage = 'en'}>English</button>
                 <button class="choice-btn {frontLanguage === 'fr' ? 'active' : ''}" onclick={() => frontLanguage = 'fr'}>French</button>
               </div>
-
+ 
               <label for="edit-deck-notes">Deck Notes & Preview</label>
               <textarea 
                 id="edit-deck-notes"

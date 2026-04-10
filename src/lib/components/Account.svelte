@@ -95,6 +95,10 @@
         syncStatus = "Decrypting data...";
         const cards = await decryptData(encryptedData, cleanPhrase);
         
+        // Clear guest/previous data to ensure account isolation
+        syncStatus = "Clearing local...";
+        await db.clearAll();
+
         syncStatus = "Importing library...";
         await db.importCards(cards);
       } else if (res.status === 404) {
@@ -120,19 +124,24 @@
     if (!userID || !recoveryPhrase || isSyncing) return;
     
     isSyncing = true;
-    syncStatus = "Preparing data...";
+    syncStatus = "Checking cloud...";
 
     try {
-      const database = await db.init();
-      
-      // Wrap IndexedDB request in a Promise for modern async/await usage
-      const allCards = await new Promise((resolve, reject) => {
-        const transaction = database.transaction(['customCards'], 'readonly');
-        const store = transaction.objectStore('customCards');
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
+      // 1. PULL: Merge from cloud first so we don't overwrite remote changes
+      const getRes = await fetch('/api/locker', {
+        headers: { 'x-locker-id': userID }
       });
+
+      if (getRes.ok) {
+        const { encryptedData: remoteEnc } = await getRes.json();
+        syncStatus = "Merging remote...";
+        const remoteCards = await decryptData(remoteEnc, recoveryPhrase);
+        await db.importCards(remoteCards);
+      }
+
+      // 2. PUSH: Get the combined local state and upload it
+      syncStatus = "Preparing upload...";
+      const allCards = await db.getAllCards();
 
       syncStatus = "Encrypting...";
       const encryptedData = await encryptData(allCards, recoveryPhrase);

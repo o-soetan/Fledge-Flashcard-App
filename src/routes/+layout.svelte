@@ -19,12 +19,29 @@
   let vaultStatus = 'Locked';
   let userHash = '';
 
+  function updateActivity() {
+    if (browser && localStorage.getItem('fledge_user_id')) {
+      localStorage.setItem('fledge_last_active', Date.now().toString());
+    }
+  }
+
   onMount(() => {
     const savedUser = localStorage.getItem('fledge_user_id');
     if (savedUser) {
       vaultStatus = 'Synced';
       userHash = savedUser.substring(0, 8);
+      updateActivity();
     }
+
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('click', updateActivity);
+
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('click', updateActivity);
+    };
   });
 
   /** @param {string} screen */

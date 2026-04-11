@@ -19,12 +19,25 @@
   let syncStatus = $state('');
   let showPhrase = $state(false);
 
+  const TIMEOUT_MS = 30 * 60 * 1000; // 30 Minutes Standard
+
   onMount(async () => {
     const savedID = localStorage.getItem('fledge_user_id');
     const savedPhrase = localStorage.getItem('fledge_vault_phrase');
     const savedToken = localStorage.getItem('fledge_sync_token');
+    const lastActive = localStorage.getItem('fledge_last_active');
 
     if (savedID && savedPhrase) {
+      // Check for session timeout
+      if (lastActive && Date.now() - parseInt(lastActive) > TIMEOUT_MS) {
+        localStorage.removeItem('fledge_user_id');
+        localStorage.removeItem('fledge_vault_phrase');
+        localStorage.removeItem('fledge_sync_token');
+        localStorage.removeItem('fledge_last_active');
+        step = 'init';
+        return;
+      }
+
       userID = savedID;
       recoveryPhrase = savedPhrase;
       if (savedToken) {

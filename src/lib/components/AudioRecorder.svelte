@@ -23,8 +23,19 @@
   }
 
   function getNaturalFrenchVoice() {
-    return voices.find(v => v.lang.startsWith('fr') && (v.name.includes('Google') || v.name.includes('Natural'))) 
-        || voices.find(v => v.lang.startsWith('fr'));
+    // Priority 1: High quality "Natural" or "Google" voices in French
+    const premium = voices.find(v => 
+      (v.lang.startsWith('fr')) && 
+      (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium'))
+    );
+    if (premium) return premium;
+
+    // Priority 2: Specific French (France) over other variants like Canadian
+    const frFrance = voices.find(v => v.lang === 'fr-FR');
+    if (frFrance) return frFrance;
+
+    // Priority 3: Any French variant
+    return voices.find(v => v.lang.startsWith('fr'));
   }
 
   // --- EXPOSED METHODS ---

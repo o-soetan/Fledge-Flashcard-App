@@ -23,19 +23,23 @@
   }
 
   function getNaturalFrenchVoice() {
-    // Priority 1: High quality "Natural" or "Google" voices in French
+    // Helper to check if a language tag is French (handles fr-FR, fr_FR, etc.)
+    const isFrench = (l) => /^fr[-_]/i.test(l) || l.toLowerCase() === 'fr';
+
+    // Priority 1: Known high-quality engines (Google, Natural, Premium, or Apple's Thomas/Audrey)
     const premium = voices.find(v => 
-      (v.lang.startsWith('fr')) && 
-      (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium'))
+      isFrench(v.lang) && 
+      (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium') || 
+       v.name.includes('Thomas') || v.name.includes('Audrey'))
     );
     if (premium) return premium;
 
-    // Priority 2: Specific French (France) over other variants like Canadian
-    const frFrance = voices.find(v => v.lang === 'fr-FR');
+    // Priority 2: Specific French (France) locale
+    const frFrance = voices.find(v => /^fr[-_]FR$/i.test(v.lang));
     if (frFrance) return frFrance;
 
     // Priority 3: Any French variant
-    return voices.find(v => v.lang.startsWith('fr'));
+    return voices.find(v => isFrench(v.lang));
   }
 
   // --- EXPOSED METHODS ---
@@ -43,6 +47,9 @@
   export function speak(overrideText) {
     const targetText = overrideText || text;
     if (!targetText) return;
+
+    // If voices haven't loaded yet (common in Chrome/Edge), try one last pull
+    if (voices.length === 0) loadVoices();
 
     stopAll();
     const utterance = new SpeechSynthesisUtterance(targetText);

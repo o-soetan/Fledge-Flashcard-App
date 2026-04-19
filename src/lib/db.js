@@ -1,9 +1,13 @@
 // src/lib/db.js
 // This creates the "customCards" storage area in your browser
 import { browser } from '$app/environment';
+import { writable } from 'svelte/store';
 
 const DB_NAME = 'FrenchTravelDB';
 const DB_VERSION = 2;
+
+// Enterprise Addition: Observable sync state
+export const syncState = writable({ status: 'idle', lastSync: null, error: null });
 
 export const db = {
   async init() {
@@ -46,7 +50,8 @@ export const db = {
       const transaction = database.transaction(['customCards'], 'readonly');
       const store = transaction.objectStore('customCards');
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
+      // Filter out soft-deleted cards for the UI
+      request.onsuccess = () => resolve(request.result.filter(c => !c.deleted));
       request.onerror = () => reject(request.error);
     });
   },
@@ -58,11 +63,25 @@ export const db = {
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(['customCards'], 'readwrite');
       const store = transaction.objectStore('customCards');
-      // .put() updates if key exists, adds if it doesn't
-      cards.forEach(card => {
-        if (!card.id) card.id = crypto.randomUUID();
-        store.put(card);
-      });
+      
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const localCards = new Map(request.result.map(c => [c.id, c]));
+        
+        cards.forEach(remoteCard => {
+          if (!remoteCard.id) remoteCard.id = crypto.randomUUID();
+          
+          const localCard = localCards.get(remoteCard.id);
+          // Only overwrite if remote is newer OR local doesn't exist
+          const remoteTime = remoteCard.updatedAt || 0;
+          const localTime = localCard?.updatedAt || 0;
+          
+          if (!localCard || remoteTime > localTime) {
+            store.put(remoteCard);
+          }
+        });
+      };
+      
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
     });
@@ -89,6 +108,7 @@ export const db = {
   async syncWithCloud(lockerId, syncToken) {
     if (!browser || !lockerId || !syncToken) return;
     try {
+      syncState.update(s => ({ ...s, status: 'syncing' }));
       console.log(`[DB] Syncing with cloud for user: ${lockerId}`);
       const response = await fetch('/api/locker', {
         headers: {
@@ -99,6 +119,10 @@ export const db = {
       
       if (!response.ok) {
         if (response.status === 404) console.log('[DB] No cloud data found for this user yet.');
+        if (response.status === 404) {
+            console.log('[DB] No cloud data found for this user yet.');
+            syncState.update(s => ({ ...s, status: 'idle' }));
+        }
         return;
       }
 
@@ -107,9 +131,11 @@ export const db = {
         // Parse the suitcase. In a production app, you'd decrypt this first.
         const remoteCards = JSON.parse(encryptedData);
         await this.importCards(remoteCards);
+        syncState.set({ status: 'idle', lastSync: Date.now(), error: null });
         console.log(`[DB] Successfully synced ${remoteCards.length} cards from cloud.`);
       }
     } catch (err) {
+      syncState.update(s => ({ ...s, status: 'error', error: err.message }));
       console.error('[DB] Cloud sync failed:', err);
     }
   },

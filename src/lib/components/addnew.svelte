@@ -152,7 +152,8 @@
       tags: selectedTags,
       deck: selectedDeck || 'General',
       audio: cardAudio, 
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: Date.now()
     };
     await db.addCard(newCard);
     onNavigate('dashboard');
@@ -169,20 +170,20 @@
 
   <div class="add-card-form">
     <div class="input-group">
-      <label for="english-input">English (Front)</label>
-      <input id="english-input" bind:value={english} placeholder="e.g. Bread" />
+      <label>English (Front)</label>
+      <input bind:value={english} placeholder="e.g. Bread" />
     </div>
 
     <div class="input-group">
-      <label for="french-input">French (Back)</label>
-      <input id="french-input" bind:value={french} placeholder="e.g. le pain" />
+      <label>French (Back)</label>
+      <input bind:value={french} placeholder="e.g. le pain" />
     </div>
 
     <div class="audio-section-header">
-      <span class="label-small">
+      <label class="label-small">
         Audio ({filledSlots}/3)
         {#if uploadStatus}<span class="upload-feedback">{uploadStatus}</span>{/if}
-      </span>
+      </label>
       <div class="audio-actions">
         {#if filledSlots > 0}
           <button type="button" class="btn-clear-audio" on:click={clearAllAudio}>🗑️ Clear</button>
@@ -206,7 +207,7 @@
     />
 
     <div class="input-group">
-      <label for="deck-select">Select Deck</label>
+      <label>Select Deck</label>
       <div class="chip-container">
         {#each userDecks as deck}
           <button type="button" class="chip {selectedDeck === deck ? 'active' : ''}" on:click={() => selectedDeck = deck}>{deck}</button>
@@ -223,16 +224,16 @@
     </div>
 
     <div class="input-group">
-      <label for="pronunciation-input">Pronunciation</label>
-      <input id="pronunciation-input" bind:value={pronunciation} placeholder="How it sounds..." />
+      <label>Pronunciation</label>
+      <input bind:value={pronunciation} placeholder="How it sounds..." />
     </div>
 
     <div class="input-group">
-      <label for="notes-textarea">Notes</label>
-      <textarea id="notes-textarea" bind:value={notes} placeholder="Context or examples..." class="custom-textarea"></textarea>
+      <label>Notes</label>
+      <textarea bind:value={notes} placeholder="Context or examples..." class="custom-textarea"></textarea>
     </div>
 
-    <span class="label-small">Tags</span>
+    <label class="label-small">Tags</label>
     <div class="chip-container">
       {#each allAvailableTags as tag}
         {@const isActive = selectedTags.includes(tag)}

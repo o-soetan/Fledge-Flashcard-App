@@ -208,6 +208,7 @@
 
   async function saveEdits() {
     const cardToUpdate = $state.snapshot(cards[currentIndex]);
+    cardToUpdate.updatedAt = Date.now();
     const database = await db.init();
     const transaction = database.transaction(['customCards'], 'readwrite');
     const store = transaction.objectStore('customCards');

@@ -19,6 +19,6 @@ Framework: Svelte 5 (using Runes for reactive state)
 
 Database: IndexedDB (Local Browser Storage)
 
-Styling: Modern CSS3 with a "Midnight & Vibrant Teal" aesthetic
+Styling: Modern CSS3 
 
 Bundler: Vite
